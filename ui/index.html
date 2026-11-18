@@ -1,106 +1,295 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PathSnap Evaluator</title>
-<!-- Leaflet 1.9.4 is bundled in ui/vendor so the page works without a CDN; only the map tiles need internet -->
+<!-- Leaflet 1.9.4 and the fonts are bundled in ui/vendor so the page works without a CDN;
+     only the map tiles need internet -->
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
+  @font-face { font-family: "Inter Tight"; font-weight: 100 900; font-display: swap;
+               src: url("vendor/fonts/InterTight-latin-wght.woff2") format("woff2"); }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 100 800; font-display: swap;
+               src: url("vendor/fonts/JetBrainsMono-latin-wght.woff2") format("woff2"); }
+
+  /* ---------- theme tokens: every colour, font and size used below comes from here ---------- */
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6677; --line: #dde1e8;
-    --accent: #1f6feb; --accent-soft: #e7f0ff; --ok: #1a7f37; --bad: #cf222e;
-    --gps: #1f77b4; --route: #ff7f0e;
+    --sans: "Inter Tight", "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --radius: 2px;
+    --hair: 1px solid var(--line);
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --t-fast: 150ms; --t-med: 220ms;
+    --sidebar-w: 340px;
   }
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b0d0f; --surface: #111417; --surface-2: #171b1f; --surface-3: #1e2328;
+    --line: #252a30; --line-strong: #3a4148; --grid: rgba(255,255,255,.035);
+    --text: #e6e9ec; --muted: #8b949d; --faint: #5a626b;
+    --accent: #c6f432; --accent-text: #c6f432; --accent-ink: #0b0d0f; --accent-soft: rgba(198,244,50,.10);
+    --danger: #ff4d4f; --danger-soft: rgba(255,77,79,.12);
+    /* map marks (read by the canvas renderer, so keep them plain colours) */
+    --gps: #d4dae0; --gps-opacity: .42;
+    --outlier: #ff4d4f;
+    --route: #c6f432; --route-w: 3.5;
+    --route-halo: #c6f432; --route-halo-opacity: .20; --route-halo-w: 11;
+    --fp: #ff4d4f; --fp-halo: #ff4d4f; --fp-halo-opacity: .28;          /* wrong predicted edge */
+    --fn: #b9c0c8; --fn-w: 2.5;                                         /* missed reference edge */
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #eceee9; --surface: #f6f7f4; --surface-2: #ffffff; --surface-3: #eef0eb;
+    --line: #d5d9d2; --line-strong: #aeb4ac; --grid: rgba(0,0,0,.045);
+    --text: #14171a; --muted: #59616a; --faint: #8c948f;
+    --accent: #c6f432; --accent-text: #4d6a00; --accent-ink: #0b0d0f; --accent-soft: rgba(120,160,0,.12);
+    --danger: #d92d20; --danger-soft: rgba(217,45,32,.10);
+    --gps: #20252b; --gps-opacity: .38;
+    --outlier: #d92d20;
+    --route: #b4e21c; --route-w: 3.5;
+    --route-halo: #14171a; --route-halo-opacity: .75; --route-halo-w: 6.5;   /* dark casing on a light map */
+    --fp: #e5332a; --fp-halo: #14171a; --fp-halo-opacity: .75;
+    --fn: #4a5158; --fn-w: 2.5;
+  }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
-  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); }
-  .app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
-  aside { background: var(--panel); border-right: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-  h1 { font-size: 18px; margin: 0; }
-  h1 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 2px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
-  .row { display: flex; gap: 8px; }
-  input[type=text] { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
-  button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font: inherit; cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .status { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 1.2em; }
-  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
-  .trips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .trips button { text-align: left; font-variant-numeric: tabular-nums; }
-  .trips button.sel { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
-  .hint { font-size: 12px; color: var(--muted); }
-  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-  .card.big { grid-column: span 2; background: var(--accent-soft); border-color: #bcd3ff; }
-  .card .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .card.big .v { font-size: 30px; }
-  .card .k { font-size: 12px; color: var(--muted); }
-  .timings { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .log { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: #0f1419; color: #c9d1d9; border-radius: 6px; padding: 8px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; }
-  main { position: relative; }
+  body { font: 14px/1.45 var(--sans); color: var(--text); background: var(--bg);
+         -webkit-font-smoothing: antialiased; }
+  .mono, code, kbd { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  code { font-size: .92em; color: var(--text); }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+  :focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+  .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100vh; }
+
+  /* ---------- sidebar ---------- */
+  aside { background: var(--surface); border-right: var(--hair); overflow-y: auto;
+          display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 18px 20px 14px; }
+  .brand .mark { width: 30px; height: 30px; flex: none; color: var(--accent); }
+  .brand h1 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.01em; line-height: 1.1; }
+  .brand h1 small { display: block; margin-top: 3px; font: 500 10.5px/1 var(--sans); letter-spacing: .14em;
+                    text-transform: uppercase; color: var(--muted); }
+  .brand .seg { margin-left: auto; }
+  .ruler { height: 9px; border-bottom: var(--hair); flex: none;
+           background:
+             repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 40px) left bottom / 100% 9px no-repeat,
+             repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 8px) left bottom / 100% 4px no-repeat; }
+
+  section.step { padding: 16px 20px 18px; border-bottom: var(--hair); }
+  h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
+       font: 600 10.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  h2 .num { font: 500 10.5px/1 var(--mono); letter-spacing: .04em; color: var(--accent-text); }
+  h2 .rule { flex: 1; height: 1px; background: var(--line); }
+  h2 .aux { font: 400 10.5px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--faint); }
+
+  .row { display: flex; gap: 6px; }
+  input[type=text] { flex: 1; min-width: 0; padding: 8px 10px; font: 13px var(--mono); color: var(--text);
+                     background: var(--bg); border: var(--hair); border-radius: var(--radius);
+                     transition: border-color var(--t-fast) var(--ease); }
+  input[type=text]:hover { border-color: var(--line-strong); }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  button { padding: 8px 12px; font: 500 13px var(--sans); color: var(--text); background: transparent;
+           border: var(--hair); border-radius: var(--radius); cursor: pointer;
+           transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+                       color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease); }
+  button:hover:not(:disabled) { border-color: var(--line-strong); background: var(--surface-2); }
+  button.primary { width: 100%; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between;
+                   font-weight: 650; letter-spacing: .02em; color: var(--accent-ink);
+                   background: var(--accent); border-color: var(--accent); }
+  button.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); filter: brightness(1.08); }
+  button.primary .arrow { font-family: var(--mono); font-weight: 500; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+
+  .seg { display: inline-flex; border: var(--hair); border-radius: var(--radius); padding: 2px; gap: 2px; }
+  .seg button { padding: 3px 7px; border: 0; font: 500 10px/1.2 var(--mono); letter-spacing: .06em;
+                text-transform: uppercase; color: var(--faint); }
+  .seg button:hover:not(:disabled) { background: transparent; color: var(--text); }
+  .seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
+
+  .status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 1.2em; }
+  .status.ok { color: var(--accent-text); } .status.bad { color: var(--danger); }
+  .hint { font-size: 12px; color: var(--faint); margin: 8px 0 0; }
+
+  .trips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+  .trips button { display: flex; align-items: baseline; gap: 8px; text-align: left; padding: 7px 9px;
+                  font: 12.5px var(--mono); border-left-width: 2px; }
+  .trips button .k { font: 600 9.5px var(--sans); letter-spacing: .12em; color: var(--faint); }
+  .trips button.sel { border-color: var(--line-strong); border-left-color: var(--accent); background: var(--accent-soft); }
+  .trips button.sel .k { color: var(--accent-text); }
+
+  /* results: hairline stat grid */
+  /* 1px gaps over a line-coloured background = hairline dividers between cells */
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: var(--hair); }
+  .cell { padding: 10px 12px; background: var(--surface); }
+  .cell.hero { grid-column: span 2; padding: 14px 12px 12px; position: relative; background-color: var(--surface);
+               background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 12px,
+                           linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 12px 100%; }
+  .cell.hero::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+  .cell .k { font: 600 10px/1.3 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .cell .v { margin-top: 4px; font: 500 18px/1.1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .cell.hero .v { font-size: 38px; font-weight: 600; color: var(--accent-text); letter-spacing: -.04em; }
+  .timings { margin: 12px 0 0; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px;
+             font: 11.5px var(--mono); color: var(--muted); }
+  .timings span:nth-child(even) { text-align: right; color: var(--text); }
+  .timings .tot { color: var(--accent-text) !important; border-top: var(--hair); padding-top: 4px; }
+  .timings .totk { border-top: var(--hair); padding-top: 4px; }
+
+  .log { font: 11px/1.5 var(--mono); background: var(--bg); color: var(--muted); border: var(--hair);
+         padding: 8px 10px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; }
+  .log .bad { color: var(--danger); }
+  .log time { color: var(--faint); margin-right: 8px; }
+
+  /* ---------- map ---------- */
+  main { position: relative; overflow: hidden; }
   #map { position: absolute; inset: 0; }
-  .legend { background: #fff; padding: 8px 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 12px; line-height: 1.7; }
-  .legend i { display: inline-block; width: 18px; height: 4px; margin-right: 6px; vertical-align: middle; }
-  .legend i.dot { width: 8px; height: 8px; border-radius: 50%; }
-  .busy { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: #fff; padding: 8px 14px; border-radius: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.25); z-index: 1000; display: none; }
+  .leaflet-container { font-family: var(--sans); background-color: var(--bg);
+    /* survey grid shows through when tiles are offline */
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 48px 48px; }
+  .leaflet-bar { border: var(--hair) !important; border-radius: var(--radius) !important; box-shadow: none !important; }
+  .leaflet-bar a { background: var(--surface) !important; color: var(--text) !important; border-bottom: var(--hair) !important;
+                   font: 400 16px/26px var(--mono) !important; width: 28px !important; height: 28px !important;
+                   transition: background var(--t-fast) var(--ease); }
+  .leaflet-bar a:hover { background: var(--surface-2) !important; }
+  .leaflet-bar a:last-child { border-bottom: 0 !important; }
+  .leaflet-bar a.leaflet-disabled { color: var(--faint) !important; }
+  .leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent) !important;
+    color: var(--faint) !important; font: 10px var(--sans) !important; border-top: var(--hair); border-left: var(--hair); }
+  .leaflet-control-attribution a { color: var(--muted) !important; }
+  .leaflet-control-scale-line { background: transparent !important; border-color: var(--line-strong) !important;
+    color: var(--muted) !important; font: 10px var(--mono) !important; text-shadow: none !important; }
+  .leaflet-control-layers { background: var(--surface) !important; color: var(--text) !important; border: var(--hair) !important;
+    border-radius: var(--radius) !important; box-shadow: none !important; font: 12px var(--sans); }
+  .leaflet-control-layers-expanded { padding: 8px 10px 8px 8px; }
+  .leaflet-control-layers label { margin: 2px 0; }
+  .leaflet-control-layers input { accent-color: var(--accent); vertical-align: -2px; }
+  .leaflet-tooltip { background: var(--surface-2); color: var(--text); border: 1px solid var(--line-strong);
+    border-radius: var(--radius); box-shadow: none; font: 11px var(--mono); padding: 4px 7px; }
+  .leaflet-tooltip-top:before { border-top-color: var(--line-strong); }
+  .leaflet-tooltip-bottom:before { border-bottom-color: var(--line-strong); }
+  .leaflet-tooltip-left:before { border-left-color: var(--line-strong); }
+  .leaflet-tooltip-right:before { border-right-color: var(--line-strong); }
+
+  /* map furniture: tick rulers on two edges, crop marks, HUD readouts */
+  .tick-x, .tick-y { position: absolute; z-index: 600; pointer-events: none; }
+  .tick-x { left: 0; right: 0; top: 0; height: 9px;
+    background: repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 48px) left top / 100% 9px no-repeat,
+                repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 12px) left top / 100% 4px no-repeat; opacity: .8; }
+  .tick-y { top: 0; bottom: 0; left: 0; width: 9px;
+    background: repeating-linear-gradient(180deg, var(--line-strong) 0 1px, transparent 1px 48px) left top / 9px 100% no-repeat,
+                repeating-linear-gradient(180deg, var(--line-strong) 0 1px, transparent 1px 12px) left top / 4px 100% no-repeat; opacity: .8; }
+  .hud { position: absolute; z-index: 600; pointer-events: none; font: 11px/1.4 var(--mono); color: var(--muted);
+         background: color-mix(in srgb, var(--surface) 88%, transparent); border: var(--hair);
+         padding: 6px 9px; border-radius: var(--radius); backdrop-filter: blur(4px); }
+  .hud b { font-weight: 500; color: var(--text); }
+  .hud .lbl { color: var(--faint); margin-right: 4px; }
+  #cursor { right: 12px; bottom: 26px; min-width: 238px; display: flex; justify-content: space-between; gap: 12px; }
+  #tripHud { left: 56px; top: 20px; display: none; }
+  #tripHud .lbl { letter-spacing: .1em; }
+
+  .legend { background: color-mix(in srgb, var(--surface) 92%, transparent); border: var(--hair); border-radius: var(--radius);
+            padding: 9px 11px; font: 11px/1.9 var(--mono); color: var(--muted); backdrop-filter: blur(4px); }
+  .legend .h { font: 600 9.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+  .legend div { display: flex; align-items: center; gap: 9px; }
+  .legend .n { margin-left: auto; padding-left: 14px; color: var(--text); text-align: right; min-width: 3ch; }
+  .legend .note { display: block; max-width: 210px; margin-top: 6px; padding-top: 6px; border-top: var(--hair);
+                  font: 10.5px/1.45 var(--sans); color: var(--faint); }
+  .legend .note code { white-space: nowrap; color: var(--muted); }
+  .legend i { display: inline-block; flex: none; width: 20px; height: 3px; background: var(--route);
+              box-shadow: 0 0 6px 1px color-mix(in srgb, var(--route-halo) 55%, transparent); }
+  .legend i.fp { background: var(--fp); box-shadow: 0 0 6px 1px color-mix(in srgb, var(--fp-halo) 55%, transparent); }
+  .legend i.fn { height: 2px; box-shadow: none; background: repeating-linear-gradient(90deg, var(--fn) 0 5px, transparent 5px 9px); }
+  .legend i.dot { width: 6px; height: 6px; margin: 0 7px; border-radius: 50%; box-shadow: none; background: var(--gps); opacity: .75; }
+  .legend i.dot.out { background: var(--outlier); opacity: 1; }
+
+  .busy { position: absolute; top: 20px; left: 50%; transform: translate(-50%, -6px); z-index: 1000;
+          display: flex; align-items: center; gap: 9px; padding: 7px 13px;
+          font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text);
+          background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
+          opacity: 0; pointer-events: none; transition: opacity var(--t-med) var(--ease), transform var(--t-med) var(--ease); }
+  .busy.on { opacity: 1; transform: translate(-50%, 0); }
+  .busy::before { content: ""; width: 7px; height: 7px; background: var(--accent); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .15; } }
+
   @media (max-width: 800px) {
     .app { grid-template-columns: 1fr; grid-template-rows: auto 60vh; height: auto; }
-    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+    aside { border-right: 0; border-bottom: var(--hair); }
     main { height: 60vh; }
+    #cursor { min-width: 0; }
   }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
 <div class="app">
   <aside>
-    <h1>PathSnap Evaluator<small>Map-matching demo &middot; UI on Laptop 2, model on Laptop 1</small></h1>
+    <header class="brand">
+      <svg class="mark" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="2.2" fill="currentColor" stroke="none"/>
+        <path d="M15 1v7M15 22v7M1 15h7M22 15h7"/>
+      </svg>
+      <h1>PathSnap<small>Evaluator</small></h1>
+      <div class="seg" role="group" aria-label="Colour theme">
+        <button type="button" data-theme-set="dark">Dark</button>
+        <button type="button" data-theme-set="light">Light</button>
+      </div>
+    </header>
+    <div class="ruler" aria-hidden="true"></div>
 
-    <section>
-      <h2>1. API (Laptop 1)</h2>
+    <section class="step">
+      <h2><span class="num">01</span>API link<span class="rule"></span><span class="aux">laptop 1</span></h2>
       <div class="row">
-        <input id="api" type="text" placeholder="http://192.168.x.x:8000" spellcheck="false">
+        <input id="api" type="text" placeholder="http://192.168.x.x:8000" spellcheck="false" autocomplete="off">
         <button id="connect">Connect</button>
       </div>
       <div id="apiStatus" class="status">Enter the address printed by <code>python -m pathsnap.api</code>.</div>
     </section>
 
-    <section>
-      <h2>2. Evaluation trips</h2>
+    <section class="step">
+      <h2><span class="num">02</span>Evaluation trips<span class="rule"></span></h2>
       <div id="trips" class="trips"></div>
       <div id="tripHint" class="hint">Connect to load the trips.</div>
     </section>
 
-    <section>
-      <h2>3. Prediction</h2>
-      <button id="run" class="primary" disabled style="width:100%">Run prediction</button>
+    <section class="step">
+      <h2><span class="num">03</span>Prediction<span class="rule"></span></h2>
+      <button id="run" class="primary" disabled><span>Run prediction</span><span class="arrow">&rarr;</span></button>
       <div id="runStatus" class="status"></div>
     </section>
 
-    <section id="resultsSec" hidden>
-      <h2>Results</h2>
+    <section id="resultsSec" class="step" hidden>
+      <h2><span class="num">04</span>Results<span class="rule"></span></h2>
       <div class="metrics">
-        <div class="card big"><div class="k">Top-1 accuracy (classifier + HMM)</div><div class="v" id="mTop1">&ndash;</div></div>
-        <div class="card"><div class="k">Classifier only</div><div class="v" id="mCls">&ndash;</div></div>
-        <div class="card"><div class="k">Route F1</div><div class="v" id="mF1">&ndash;</div></div>
-        <div class="card"><div class="k">Route precision</div><div class="v" id="mP">&ndash;</div></div>
-        <div class="card"><div class="k">Route recall</div><div class="v" id="mR">&ndash;</div></div>
-        <div class="card"><div class="k">GPS points scored</div><div class="v" id="mN">&ndash;</div></div>
-        <div class="card"><div class="k">Route arcs / breaks</div><div class="v" id="mArcs">&ndash;</div></div>
+        <div class="cell hero"><div class="k">Top-1 accuracy &middot; classifier + HMM</div><div class="v" id="mTop1">&ndash;</div></div>
+        <div class="cell"><div class="k">Classifier only</div><div class="v" id="mCls">&ndash;</div></div>
+        <div class="cell"><div class="k">Route F1</div><div class="v" id="mF1">&ndash;</div></div>
+        <div class="cell"><div class="k">Route precision</div><div class="v" id="mP">&ndash;</div></div>
+        <div class="cell"><div class="k">Route recall</div><div class="v" id="mR">&ndash;</div></div>
+        <div class="cell"><div class="k">GPS points scored</div><div class="v" id="mN">&ndash;</div></div>
+        <div class="cell"><div class="k">Arcs / breaks</div><div class="v" id="mArcs">&ndash;</div></div>
       </div>
-      <p id="timings" class="timings"></p>
-      <p class="hint">Accuracy is computed on Laptop 1 against its reference data; the reference route is never sent to this page.</p>
+      <div id="timings" class="timings"></div>
+      <p id="refNote" class="hint">Accuracy is computed on Laptop 1 against its reference data; the reference route is never sent to this page.</p>
     </section>
 
-    <section>
-      <h2>Request log</h2>
+    <section class="step">
+      <h2>Request log<span class="rule"></span></h2>
       <div id="log" class="log"></div>
     </section>
   </aside>
   <main>
     <div id="map"></div>
-    <div id="busy" class="busy">Running prediction&hellip;</div>
+    <div class="tick-x" aria-hidden="true"></div><div class="tick-y" aria-hidden="true"></div>
+    <div id="tripHud" class="hud"></div>
+    <div id="cursor" class="hud" aria-hidden="true">
+      <span><span class="lbl">LAT</span><b id="cLat">&mdash;</b></span>
+      <span><span class="lbl">LON</span><b id="cLon">&mdash;</b></span>
+      <span><span class="lbl">Z</span><b id="cZ">&mdash;</b></span>
+    </div>
+    <div id="busy" class="busy">Running prediction</div>
   </main>
 </div>
 
@@ -108,41 +297,135 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { api: null, trip: null };
+  const state = { api: null, trip: null, refFlag: false };   // refFlag: API supports --show-reference
+  const root = document.documentElement;
+  const token = name => getComputedStyle(root).getPropertyValue(name).trim();
 
   // ---- map ----
-  const map = L.map("map", { preferCanvas: true }).setView([20, 0], 2);
+  const map = L.map("map", { preferCanvas: true, zoomSnap: .25 }).setView([20, 0], 2);
+  // Esri Canvas basemaps: muted grey, no API key (CARTO's basemaps now require one)
+  const esri = name => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${name}/MapServer/tile/{z}/{y}/{x}`;
+  const TILES = {
+    dark:  { base: esri("World_Dark_Gray_Base"),  labels: esri("World_Dark_Gray_Reference") },
+    light: { base: esri("World_Light_Gray_Base"), labels: esri("World_Light_Gray_Reference") },
+  };
+  const tileOpts = { maxZoom: 20, maxNativeZoom: 16 };
   let tileWarned = false;
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+  const tiles = L.tileLayer(TILES.dark.base, { ...tileOpts,
+    attribution: 'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors'
   }).on("tileerror", () => {
     // no internet on this laptop: the background map is missing, GPS + routes still draw
     if (tileWarned) return;
     tileWarned = true;
     log("Map tiles unavailable (no internet?). GPS tracks and routes still draw.", true);
   }).addTo(map);
-  const routeLayer = L.layerGroup().addTo(map);   // added first: GPS dots draw on top of the route
+  const labels = L.tileLayer(TILES.dark.labels, tileOpts).addTo(map);
+
+  // Layering: each layer gets its own pane + canvas, so the route always draws ABOVE the GPS
+  // fixes regardless of creation order. The route pane ignores the mouse so the GPS tooltips
+  // underneath it still work.
+  map.createPane("gps").style.zIndex = 410;
+  map.createPane("missed").style.zIndex = 415;     // missed reference edges: above GPS, below the route
+  map.createPane("route").style.zIndex = 420;
+  map.getPane("missed").style.pointerEvents = "none";
+  map.getPane("route").style.pointerEvents = "none";
+  const gpsRenderer = L.canvas({ pane: "gps" });
+  const missedRenderer = L.canvas({ pane: "missed", padding: .5 });
+  const routeRenderer = L.canvas({ pane: "route", padding: .5 });
   const gpsLayer = L.layerGroup().addTo(map);
-  L.control.layers(null, { "GPS observations": gpsLayer, "Predicted route": routeLayer }, { collapsed: false }).addTo(map);
+  const missedLayer = L.layerGroup().addTo(map);
+  const routeLayer = L.layerGroup().addTo(map);
+  L.control.layers(null, { "GPS observations": gpsLayer, "Predicted route": routeLayer,
+                           "Missed edges": missedLayer }, { collapsed: false }).addTo(map);
+  L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
+
+  // all mark styles come from the CSS theme tokens; restyle() re-reads them on a theme switch
+  function styleFor(role) {
+    switch (role) {
+      case "gps":     return { radius: 2, weight: 0, fillColor: token("--gps"), fillOpacity: +token("--gps-opacity") };
+      case "outlier": return { radius: 2.5, weight: 0, fillColor: token("--outlier"), fillOpacity: .85 };
+      case "halo":    return { color: token("--route-halo"), weight: +token("--route-halo-w"),
+                               opacity: +token("--route-halo-opacity"), lineCap: "round", lineJoin: "round" };
+      case "route":   return { color: token("--route"), weight: +token("--route-w"), opacity: 1,
+                               lineCap: "round", lineJoin: "round" };
+      case "fp-halo": return { color: token("--fp-halo"), weight: +token("--route-halo-w"),
+                               opacity: +token("--fp-halo-opacity"), lineCap: "round", lineJoin: "round" };
+      case "fp":      return { color: token("--fp"), weight: +token("--route-w"), opacity: 1,
+                               lineCap: "round", lineJoin: "round" };
+      case "fn":      return { color: token("--fn"), weight: +token("--fn-w"), opacity: .9,
+                               dashArray: "5 6", lineCap: "butt", lineJoin: "round" };
+    }
+  }
+  function mark(role, layer) { layer.options.role = role; layer.setStyle(styleFor(role)); return layer; }
+  function restyle() {
+    [gpsLayer, missedLayer, routeLayer].forEach(g => g.eachLayer(l => l.options.role && l.setStyle(styleFor(l.options.role))));
+  }
+
+  // legend rows: [swatch class, label, count or null]; rebuilt after each prediction
+  let legendBox;
   const legend = L.control({ position: "bottomleft" });
-  legend.onAdd = () => {
-    const d = L.DomUtil.create("div", "legend");
-    d.innerHTML = '<div><i class="dot" style="background:var(--gps)"></i>GPS observation</div>' +
-                  '<div><i class="dot" style="background:#d62728"></i>Flagged GPS outlier</div>' +
-                  '<div><i style="background:var(--route)"></i>Predicted route (HMM)</div>';
-    return d;
-  };
+  legend.onAdd = () => (legendBox = L.DomUtil.create("div", "legend"));
   legend.addTo(map);
+  function renderLegend(routeRows = [["", "Predicted route (HMM)", null]], note = "") {
+    const rows = [...routeRows, ["dot", "GPS observation", null], ["dot out", "Flagged GPS outlier", null]];
+    legendBox.replaceChildren();
+    const h = document.createElement("div"); h.className = "h"; h.textContent = "Legend";
+    legendBox.append(h);
+    rows.forEach(([cls, label, n]) => {
+      const row = document.createElement("div");
+      const sw = document.createElement("i"); sw.className = cls;
+      row.append(sw, label);
+      if (n != null) { const c = document.createElement("span"); c.className = "n"; c.textContent = n.toLocaleString(); row.append(c); }
+      legendBox.append(row);
+    });
+    if (note) {                                       // note: text, or [text, {code}, text, ...]
+      const s = document.createElement("span"); s.className = "note";
+      [].concat(note).forEach(part => {
+        if (typeof part === "string") { s.append(part); return; }
+        const c = document.createElement("code"); c.textContent = part.code; s.append(c);
+      });
+      legendBox.append(s);
+    }
+  }
+  renderLegend();
+
+  // live cursor readout
+  const fmt = (v, pos, neg) => `${Math.abs(v).toFixed(5)}°${v >= 0 ? pos : neg}`;
+  function showZoom() { $("cZ").textContent = map.getZoom().toFixed(2).replace(/\.?0+$/, ""); }
+  map.on("mousemove", e => { $("cLat").textContent = fmt(e.latlng.lat, "N", "S");
+                             $("cLon").textContent = fmt(e.latlng.lng, "E", "W"); });
+  map.on("mouseout", () => { $("cLat").textContent = "—"; $("cLon").textContent = "—"; });
+  map.on("zoomend", showZoom); showZoom();
+
+  // ---- theme ----
+  function applyTheme(t) {
+    root.dataset.theme = t;
+    document.querySelectorAll("[data-theme-set]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeSet === t)));
+    tiles.setUrl(TILES[t].base); labels.setUrl(TILES[t].labels);
+    restyle();
+    try { localStorage.setItem("pathsnap_theme", t); } catch (_) {}
+  }
+  document.querySelectorAll("[data-theme-set]").forEach(b => b.onclick = () => applyTheme(b.dataset.themeSet));
 
   // ---- helpers ----
   function log(msg, bad) {
     const line = document.createElement("div");
-    line.textContent = `${new Date().toLocaleTimeString()}  ${msg}`;
-    if (bad) line.style.color = "#ff7b72";
+    const ts = document.createElement("time");
+    ts.textContent = new Date().toLocaleTimeString([], { hour12: false });
+    line.append(ts, msg);
+    if (bad) line.className = "bad";
     $("log").prepend(line);
   }
   function setStatus(el, msg, cls) { el.textContent = msg; el.className = "status" + (cls ? " " + cls : ""); }
-  const pct = v => (v == null || Number.isNaN(v)) ? "n/a" : (100 * v).toFixed(1) + "%";
+  const pct = v => (v == null || Number.isNaN(v)) ? "n/a" : (100 * v).toFixed(2) + "%";
+  function setTripHud(id, text) {
+    const h = $("tripHud");
+    h.replaceChildren();
+    const l = document.createElement("span"); l.className = "lbl"; l.textContent = "TRIP";
+    const b = document.createElement("b"); b.textContent = id;
+    h.append(l, b, `  ·  ${text}`);
+    h.style.display = "block";
+  }
   async function call(path, opts = {}) {
     const t0 = performance.now();
     let res;
@@ -178,8 +461,10 @@
     setStatus($("apiStatus"), "Connecting…");
     try {
       const h = await call("/health");
+      state.refFlag = "show_reference" in h;          // older APIs do not have the flag
+      const refMode = h.show_reference ? " · route comparison on" : "";
       if (h.partition === "evaluator_test") {
-        setStatus($("apiStatus"), `Connected: ${h.n_trips} trips in '${h.partition}'`, "ok");
+        setStatus($("apiStatus"), `Connected: ${h.n_trips} trips in '${h.partition}'${refMode}`, "ok");
       } else {
         setStatus($("apiStatus"), `Connected, but in PRACTICE MODE: ${h.n_trips} trips in '${h.partition}', ` +
           `not the evaluator trips. Restart the API with --partition evaluator_test for the demo.`, "bad");
@@ -197,7 +482,8 @@
     box.replaceChildren();
     ids.forEach(id => {
       const b = document.createElement("button");
-      b.textContent = `Trip ${id}`;
+      const k = document.createElement("span"); k.className = "k"; k.textContent = "TRIP";
+      b.append(k, id);
       b.onclick = () => selectTrip(id, b);
       box.appendChild(b);
     });
@@ -209,12 +495,15 @@
     $("run").disabled = false;
     $("resultsSec").hidden = true;
     setStatus($("runStatus"), `Trip ${id} selected.`);
-    gpsLayer.clearLayers(); routeLayer.clearLayers();
+    gpsLayer.clearLayers(); missedLayer.clearLayers(); routeLayer.clearLayers();
+    renderLegend();
     try {
       const g = await call(`/trips/${encodeURIComponent(id)}/gps`);
+      if (state.trip !== id) return;                  // user switched trips meanwhile
       const latlngs = g.points.map(([lon, lat]) => [lat, lon]);
-      latlngs.forEach(ll => L.circleMarker(ll, { radius: 2, color: "#1f77b4", weight: 0, fillOpacity: .7 }).addTo(gpsLayer));
-      if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs), { padding: [30, 30] });
+      latlngs.forEach(ll => mark("gps", L.circleMarker(ll, { renderer: gpsRenderer })).addTo(gpsLayer));
+      if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
+      setTripHud(id, `${g.n_points.toLocaleString()} fixes`);
       setStatus($("runStatus"), `Trip ${id}: ${g.n_points} GPS observations. Press "Run prediction".`);
     } catch (e) {
       setStatus($("runStatus"), `Could not load the GPS track (${e.message}).`, "bad");
@@ -225,34 +514,56 @@
   async function run() {
     if (!state.trip) return;
     const id = state.trip;
-    $("run").disabled = true; $("busy").style.display = "block";
+    $("run").disabled = true; $("busy").classList.add("on");
     setStatus($("runStatus"), `Sending trip ${id} to the API…`);
     try {
       const r = await call("/predict", { method: "POST", body: JSON.stringify({ trip_id: id }) });
       if (r.trip_id !== state.trip) return;           // user switched trips meanwhile
       drawPrediction(r);
       showMetrics(r);
+      setTripHud(id, `${r.n_points.toLocaleString()} fixes  ·  ${r.predicted_route.n_arcs} arcs`);
       setStatus($("runStatus"), `Trip ${id} matched in ${r.timings_s.total.toFixed(2)} s.`, "ok");
     } catch (e) {
       setStatus($("runStatus"), `Prediction failed (${e.message}).`, "bad");
     } finally {
-      $("run").disabled = false; $("busy").style.display = "none";
+      $("run").disabled = false; $("busy").classList.remove("on");
     }
   }
+  const toLatLngs = geom => geom.coordinates.map(seg => seg.map(([lon, lat]) => [lat, lon]));
   function drawPrediction(r) {
-    gpsLayer.clearLayers(); routeLayer.clearLayers();
-    // canvas draws in creation order: route first, then the GPS dots on top of it
-    const lines = r.predicted_route.geometry.coordinates.map(seg => seg.map(([lon, lat]) => [lat, lon]));
-    L.polyline(lines, { color: "#ff7f0e", weight: 4, opacity: .85 }).addTo(routeLayer);
+    gpsLayer.clearLayers(); missedLayer.clearLayers(); routeLayer.clearLayers();
+    // route: a wide soft halo under a crisp core line, both in the route pane above the GPS pane
+    const lines = toLatLngs(r.predicted_route.geometry);
+    const opts = { renderer: routeRenderer, interactive: false, smoothFactor: 1 };
+    const ids = r.predicted_route.arc_ids, ref = r.reference, m = r.metrics;
+    const draw = (role, ls) => ls.length && mark(role, L.polyline(ls, opts)).addTo(routeLayer);
+    if (ref && ids && ids.length === lines.length) {
+      // API started with --show-reference: colour each predicted arc by whether it is on the reference
+      const ok = new Set(ref.tp_arcs);
+      const tp = lines.filter((_, i) => ok.has(ids[i])), fp = lines.filter((_, i) => !ok.has(ids[i]));
+      const fn = toLatLngs(ref.fn_geometry);
+      if (fn.length) mark("fn", L.polyline(fn, { ...opts, renderer: missedRenderer })).addTo(missedLayer);
+      draw("halo", tp); draw("fp-halo", fp);
+      draw("route", tp); draw("fp", fp);               // wrong edges last, so they sit on top
+      renderLegend([["", "Correct edge (TP)", ref.tp_arcs.length],
+                    ["fp", "Wrong edge (FP)", ref.fp_arcs.length],
+                    ["fn", "Missed edge (FN)", ref.fn_arcs.length]]);
+    } else {
+      draw("halo", lines); draw("route", lines);
+      const counts = m.route_tp != null ? `TP ${m.route_tp} · FP ${m.route_fp} · FN ${m.route_fn} arcs. ` : "";
+      const hint = state.refFlag ? ["Start the API with ", { code: "--show-reference" }, " to colour wrong and missed edges."] : [];
+      renderLegend(undefined, counts || hint.length ? [counts, ...hint] : "");
+    }
+    $("refNote").textContent = ref
+      ? "Accuracy is computed on Laptop 1. Its route comparison was sent after scoring (--show-reference); the model never sees the reference."
+      : "Accuracy is computed on Laptop 1 against its reference data; the reference route is never sent to this page.";
     const p = r.points;
     for (let i = 0; i < p.lon.length; i++) {
-      L.circleMarker([p.lat[i], p.lon[i]], {
-        radius: p.is_outlier[i] ? 3.5 : 2.5, weight: 0, fillOpacity: .8,
-        color: p.is_outlier[i] ? "#d62728" : "#1f77b4"
-      }).bindTooltip(`obs ${p.obs_idx[i]} &rarr; arc ${p.predicted_arc[i]}`).addTo(gpsLayer);
+      mark(p.is_outlier[i] ? "outlier" : "gps", L.circleMarker([p.lat[i], p.lon[i]], { renderer: gpsRenderer }))
+        .bindTooltip(`obs ${p.obs_idx[i]} → arc ${p.predicted_arc[i]}`).addTo(gpsLayer);
     }
     const all = lines.flat();
-    if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [30, 30] });
+    if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [40, 40] });
   }
   function showMetrics(r) {
     const m = r.metrics;
@@ -264,9 +575,13 @@
     $("mN").textContent = m.n_scored_points.toLocaleString();
     $("mArcs").textContent = `${r.predicted_route.n_arcs} / ${r.predicted_route.breaks}`;
     const t = r.timings_s;
-    $("timings").textContent = `Server time ${t.total.toFixed(2)} s: load + clean ${t.load_clean.toFixed(2)} s, ` +
-      `candidates + classifier ${t.candidates_classifier.toFixed(2)} s, HMM ${t.hmm_viterbi.toFixed(2)} s, ` +
-      `scoring ${t.scoring.toFixed(2)} s`;
+    const rows = [["load + clean", t.load_clean], ["candidates + classifier", t.candidates_classifier],
+                  ["HMM / Viterbi", t.hmm_viterbi], ["scoring", t.scoring]];
+    const box = $("timings");
+    box.replaceChildren();
+    const cell = (txt, cls) => { const s = document.createElement("span"); s.textContent = txt; if (cls) s.className = cls; box.append(s); };
+    rows.forEach(([k, v]) => { cell(k); cell(`${v.toFixed(2)} s`); });
+    cell("server total", "totk"); cell(`${t.total.toFixed(2)} s`, "tot");
     $("resultsSec").hidden = false;
   }
 
@@ -274,6 +589,9 @@
   $("connect").onclick = connect;
   $("api").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
   $("run").onclick = run;
+  let savedTheme = null;
+  try { savedTheme = localStorage.getItem("pathsnap_theme"); } catch (_) {}
+  applyTheme(savedTheme === "light" ? "light" : "dark");
   const fromQuery = new URLSearchParams(location.search).get("api");
   let saved = null;
   try { saved = localStorage.getItem("pathsnap_api"); } catch (_) {}
