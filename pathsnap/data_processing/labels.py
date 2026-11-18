@@ -18,15 +18,7 @@ import numpy as np
 import pandas as pd
 
 from pathsnap.config import LABEL_MAX_DIST_M
-
-
-def point_segment_distance(px: float, py: float, ax, ay, bx, by):
-    """Distance from one point to many segments a->b, plus position t in [0,1] along each."""
-    dx, dy = bx - ax, by - ay
-    L2 = dx * dx + dy * dy
-    t = np.where(L2 > 0, ((px - ax) * dx + (py - ay) * dy) / np.where(L2 > 0, L2, 1), 0.0)
-    t = np.clip(t, 0.0, 1.0)
-    return np.hypot(px - (ax + t * dx), py - (ay + t * dy)), t
+from pathsnap.data_processing.geometry import point_segment_distance
 
 
 def monotone_align(px: np.ndarray, py: np.ndarray, ax, ay, bx, by) -> np.ndarray:

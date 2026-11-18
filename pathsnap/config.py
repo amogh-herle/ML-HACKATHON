@@ -27,4 +27,12 @@ GAP_BREAK_S = 30.0       # time gap that starts a new track segment
 LABEL_MAX_DIST_M = 50.0  # label farther than this from its route arc = unreliable
 TRIP_SUSPECT_MEDIAN_M = 30.0  # trip median label distance above this = suspect reference route
 
+# --- candidate generation (chosen by miss-rate sweep on train only) ---
+# Sweep (results/eda/candidate_sweep.csv, train): R=50,k=8 miss 0.84% / 5.7 cands;
+# R=50,k=12 miss 0.56% / 7.1 cands; larger R adds nothing (labels capped at 50 m).
+CAND_RADIUS_M = 50.0           # search radius around each GPS point
+CAND_K = 12                    # keep at most k nearest arcs per point
+CAND_FALLBACK_RADIUS_M = 200.0 # if nothing within radius, search this far
+HEADING_MIN_MOVE_M = 2.0       # below this displacement GPS heading is unknown
+
 SEED = 42

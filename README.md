@@ -77,6 +77,24 @@ python -m pathsnap.data_processing.preprocess
 
 Parameters live in `pathsnap/config.py`.
 
+## Candidates and features
+
+```bash
+python -m pathsnap.features.build --sweep   # miss rate vs radius/k -> results/eda/candidate_sweep.csv
+python -m pathsnap.features.build           # -> data/processed/<partition>_candidates.parquet
+```
+
+`features/candidates.py::build_candidates` (route-free, reused by the API)
+takes the k = 12 nearest arcs within 50 m of each valid GPS point (fallback
+search to 200 m if none). Settings were chosen from the train sweep: candidate
+miss rate 0.56 % on train, 0.07 % on student_test, ~7 candidates per point.
+
+One row per (observation, candidate arc); feature list in `FEATURE_COLUMNS`:
+distance, distance rank / gap to best, candidate-set size, heading difference
+(separates the two directions of a two-way street), arc length, projection
+position, speed, time gap, connectivity to the previous / next observation's
+nearest arc, and node degrees. Training rows: `label_reliable`; target: `label`.
+
 ```python
 from pathsnap.data_processing.loader import load_trip, list_trips
 trip = load_trip(list_trips("train")[0], "train")
