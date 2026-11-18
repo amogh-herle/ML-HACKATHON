@@ -42,7 +42,8 @@ results/
   maps/                Folium HTML maps
   logs/                training / ablation / HPO / HMM run logs
 artifacts/             final_model.joblib + .json, hmm_config.json (per-model weights not in git)
-ui/                    evaluator UI (Laptop 2)
+ui/                    evaluator UI (Laptop 2): index.html + bundled Leaflet in vendor/
+deploy/                one launcher per laptop: laptop1_api.bat (Windows), laptop2_ui.sh (macOS / Linux)
 report/                technical report
 ```
 
@@ -58,6 +59,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 export PATHSNAP_DATA="/path/to/Student folder"   # folder with train/ student_test/ (evaluator_test/)
 ```
+
+On macOS, XGBoost also needs the OpenMP runtime: `brew install libomp` (only for running models
+or the API; Laptop 2 does not need it). `requirements.txt` installs `xgboost` on macOS and
+`xgboost-cpu` elsewhere, same version.
 
 Windows (PowerShell):
 
@@ -161,20 +166,56 @@ bounded Dijkstra; no-path pairs get a capped penalty (never zero); chains restar
 space Viterbi; gaps between decoded arcs are filled with shortest paths. beta and the emission
 weight are tuned on train out-of-fold probabilities (`artifacts/hmm_config.json`).
 
+## Two-laptop deployment
+
+| Laptop | Role | Uses from this repo | Needs |
+|---|---|---|---|
+| Laptop 1 | Model + API | `pathsnap/`, `artifacts/`, `requirements.txt` | `.venv` with the requirements, `Student folder/` (with `evaluator_test/`) |
+| Laptop 2 | Evaluator UI | `ui/` only | a browser (python3 only for the launcher script) |
+
+Laptop 2 never has the data, the model or the reference routes: it only sends a trip id to
+Laptop 1 and draws what comes back. Both laptops clone this same repository.
+
+**Laptop 1 (Windows)**, after the one-time [Setup](#setup) and firewall rule (see [API](#api-laptop-1)):
+
+```bat
+deploy\laptop1_api.bat                 :: demo: serves the 10 evaluator_test trips
+deploy\laptop1_api.bat student_test    :: practice run
+```
+
+It works from Command Prompt, PowerShell or a double-click (no activation or execution-policy
+change needed) and prints a banner with the served partition, its trip ids and the address to
+give Laptop 2. On macOS / Linux: `python -m pathsnap.api --partition evaluator_test`.
+
+**Laptop 2 (macOS / Linux)**:
+
+```bash
+deploy/laptop2_ui.sh 192.168.1.20:8000   # the address from Laptop 1's banner; Ctrl+C to stop
+```
+
+On Windows, double-click `ui\index.html` and type the address instead.
+
+**Before the demo (rehearsal):** both laptops on the same network (a phone hotspot avoids
+campus Wi-Fi blocking device-to-device traffic) -> Laptop 1 `deploy\laptop1_api.bat student_test`
+-> Laptop 2 connects and runs all 10 trips -> Laptop 1 restarts with `deploy\laptop1_api.bat`.
+The UI shows a red *PRACTICE MODE* status whenever it is not connected to `evaluator_test`.
+
+**Backup** if Laptop 2 cannot reach Laptop 1: open `ui\index.html` on Laptop 1 and connect to
+`http://localhost:8000`.
+
 ## API (Laptop 1)
 
 ```bash
-python -m pathsnap.api            # 0.0.0.0:8000, prints the LAN address to give the UI
-PATHSNAP_PARTITION=student_test python -m pathsnap.api   # serve another partition (practice runs)
+python -m pathsnap.api --partition evaluator_test   # demo: 0.0.0.0:8000, prints the LAN address + trips
+python -m pathsnap.api --partition student_test     # practice runs
 ```
 
 Windows (Laptop 1 on Windows):
 
 ```powershell
-python -m pathsnap.api                                           # same command, venv active
-$env:PATHSNAP_PARTITION = "student_test"; python -m pathsnap.api  # practice run on student_test
-Remove-Item Env:PATHSNAP_PARTITION                               # clear it before the real demo!
-ipconfig                                                         # "IPv4 Address" = address for the UI
+python -m pathsnap.api --partition evaluator_test   # demo (same command, venv active)
+python -m pathsnap.api --partition student_test     # practice run
+ipconfig                                            # "IPv4 Address" = address for the UI
 
 # allow incoming connections on port 8000 (run once, in an Administrator PowerShell)
 New-NetFirewallRule -DisplayName "PathSnap API" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
@@ -200,13 +241,14 @@ prints it at start-up.
 
 `/predict` runs `pipeline.Matcher` without the reference route, then scores the result
 server-side; the reference route is never in a response. Requests are logged to the terminal
-and `logs/api.log`. Served partition: `PATHSNAP_PARTITION`, default `evaluator_test` if that
+and `logs/api.log`. Served partition: `--partition`, else `PATHSNAP_PARTITION`, else `evaluator_test` if that
 folder exists, else `student_test`. Allow incoming TCP 8000 in Laptop 1's firewall.
 
 ## UI (Laptop 2)
 
-`ui/index.html` is a single static page (Leaflet map); Laptop 2 needs only a browser and
-internet for the map tiles, no Python. Either open the file directly, or serve it:
+`ui/index.html` is a single static page (Leaflet map, bundled in `ui/vendor/`); Laptop 2 needs
+only a browser, no Python and no data. Internet is needed only for the background map tiles;
+without it the GPS track and predicted route still draw. Either open the file directly, or serve it:
 
 ```bash
 python3 -m http.server 5500 --directory ui      # Linux / macOS, then open http://localhost:5500
@@ -227,10 +269,8 @@ lists the served trips; selecting one draws its GPS track, *Run prediction* send
 route arcs / breaks and the server-side timing breakdown. A request log shows every call.
 The reference route is never sent to the UI.
 
-**Demo checklist:** both laptops on the same network (a phone hotspot avoids blocked
-device-to-device traffic on campus Wi-Fi) · Laptop 1: allow incoming TCP 8000, run
-`python -m pathsnap.api` and keep its terminal visible (request logs) · Laptop 2: open the UI,
-enter Laptop 1's address, Connect.
+**Demo checklist:** see [Two-laptop deployment](#two-laptop-deployment). Keep Laptop 1's
+terminal visible during the demo: it shows every request and its accuracy.
 
 ## Google Colab (optional)
 

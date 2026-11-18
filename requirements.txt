@@ -10,7 +10,9 @@ networkx==3.7
 # models + HPO
 scikit-learn==1.9.1
 lightgbm==4.7.0
-xgboost-cpu==3.4.1
+# xgboost-cpu (no ~200 MB CUDA download) has no macOS build; macOS uses plain xgboost (CPU only)
+xgboost-cpu==3.4.1; sys_platform != "darwin"
+xgboost==3.4.1; sys_platform == "darwin"
 optuna==5.1.0
 joblib==1.6.0
 

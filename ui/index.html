@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PathSnap Evaluator</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- Leaflet 1.9.4 is bundled in ui/vendor so the page works without a CDN; only the map tiles need internet -->
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
   :root {
     --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6677; --line: #dde1e8;
@@ -103,7 +104,7 @@
   </main>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -111,8 +112,14 @@
 
   // ---- map ----
   const map = L.map("map", { preferCanvas: true }).setView([20, 0], 2);
+  let tileWarned = false;
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+  }).on("tileerror", () => {
+    // no internet on this laptop: the background map is missing, GPS + routes still draw
+    if (tileWarned) return;
+    tileWarned = true;
+    log("Map tiles unavailable (no internet?). GPS tracks and routes still draw.", true);
   }).addTo(map);
   const routeLayer = L.layerGroup().addTo(map);   // added first: GPS dots draw on top of the route
   const gpsLayer = L.layerGroup().addTo(map);
@@ -171,7 +178,12 @@
     setStatus($("apiStatus"), "Connecting…");
     try {
       const h = await call("/health");
-      setStatus($("apiStatus"), `Connected: ${h.n_trips} trips in '${h.partition}'`, "ok");
+      if (h.partition === "evaluator_test") {
+        setStatus($("apiStatus"), `Connected: ${h.n_trips} trips in '${h.partition}'`, "ok");
+      } else {
+        setStatus($("apiStatus"), `Connected, but in PRACTICE MODE: ${h.n_trips} trips in '${h.partition}', ` +
+          `not the evaluator trips. Restart the API with --partition evaluator_test for the demo.`, "bad");
+      }
       const t = await call("/trips");
       renderTrips(t.trips);
     } catch (e) {

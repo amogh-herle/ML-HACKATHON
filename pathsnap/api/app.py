@@ -16,7 +16,8 @@ Configuration (environment variables)
     PATHSNAP_PARTITION   partition served to the UI (default: evaluator_test if present,
                          otherwise student_test)
 
-Run:  python -m pathsnap.api          (host 0.0.0.0, port 8000; see --help)
+Run:  python -m pathsnap.api --partition evaluator_test   (host 0.0.0.0, port 8000; see --help)
+      --partition overrides PATHSNAP_PARTITION.
 """
 from __future__ import annotations
 
@@ -66,7 +67,24 @@ async def lifespan(app: FastAPI):
              ARTIFACTS_DIR / "final_model.joblib", STATE["matcher"].params.beta,
              STATE["matcher"].params.emission_weight, STATE["partition"], len(STATE["trips"]),
              DATA_ROOT, time.perf_counter() - t0)
+    log.info(_banner(STATE["partition"], STATE["trips"]))
     yield
+
+
+def _banner(partition: str, trips: list[str]) -> str:
+    """Start-up summary for the evaluator. ASCII only: the Windows console may not be UTF-8."""
+    url = os.environ.get("PATHSNAP_PUBLIC_URL", "http://<this laptop's IP>:8000")
+    bar = "=" * 66
+    lines = ["", bar, "  PATHSNAP API READY",
+             f"  Partition : {partition}   ({len(trips)} trips)"]
+    lines += [f"  Trips     : {' '.join(trips[i:i + 5])}" if i == 0 else f"              {' '.join(trips[i:i + 5])}"
+              for i in range(0, len(trips), 5)]
+    lines.append(f"  UI address: {url}")
+    if partition != "evaluator_test":
+        lines.append(f"  PRACTICE MODE: serving '{partition}', NOT the evaluator trips.")
+        lines.append("  For the demo restart with:  python -m pathsnap.api --partition evaluator_test")
+    lines.append(bar)
+    return "\n".join(lines)
 
 
 app = FastAPI(title="PathSnap API", version="1.0", lifespan=lifespan)
