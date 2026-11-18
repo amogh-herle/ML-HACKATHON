@@ -7,8 +7,8 @@ inside a Pipeline, so the scaler is fitted on the training fold only.
 from __future__ import annotations
 
 from lightgbm import LGBMClassifier
-from sklearn.ensemble import (AdaBoostClassifier, ExtraTreesClassifier,
-                              HistGradientBoostingClassifier, RandomForestClassifier)
+from sklearn.ensemble import (AdaBoostClassifier, HistGradientBoostingClassifier,
+                              RandomForestClassifier)
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
@@ -58,10 +58,6 @@ REGISTRY: dict[str, ModelSpec] = {s.name: s for s in [
     ModelSpec("hgb", "Boosting",
               HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=SEED),
               "HistGradientBoosting(300 iters, lr=0.05)"),
-    ModelSpec("extratrees", "Ensemble (bagging)",
-              ExtraTreesClassifier(n_estimators=200, min_samples_leaf=5, n_jobs=JOBS,
-                                   random_state=SEED),
-              "ExtraTrees(200 trees, min_samples_leaf=5)"),
     ModelSpec("dtree", "Tree-based",
               DecisionTreeClassifier(max_depth=12, min_samples_leaf=20, random_state=SEED),
               "DecisionTree(max_depth=12, min_samples_leaf=20)"),

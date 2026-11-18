@@ -1,0 +1,58 @@
+{
+  "model": "mlp",
+  "family": "Neural network",
+  "description": "StandardScaler + MLP(64-32, ReLU, Adam, early stopping)",
+  "config": "Pipeline(steps=[('standardscaler', StandardScaler()),\n                ('mlpclassifier',\n                 MLPClassifier(early_stopping=True, hidden_layer_sizes=(64, 32),\n                               max_iter=60, random_state=42))])",
+  "train_fraction": 1.0,
+  "seed": 42,
+  "n_folds": 5,
+  "notes": [
+    "early_stopping holds out a random 10% of training rows (not grouped by trip) to decide when to stop."
+  ],
+  "cv_mean": {
+    "accuracy": 0.9527297769766321,
+    "precision_pos": 0.8512327822108594,
+    "recall_pos": 0.8119204759620432,
+    "precision_macro": 0.9102157555470072,
+    "recall_macro": 0.8938197558560855,
+    "macro_f1": 0.9016212527042633,
+    "log_loss": 0.12900173022489944,
+    "top1_accuracy": 0.8393385998515726,
+    "n_points": 37015.4,
+    "n_rows": 262256.2,
+    "fit_seconds": 173.39581325959952,
+    "predict_seconds": 0.14601337300045997,
+    "n_val_trips": 16.0
+  },
+  "cv_std": {
+    "accuracy": 0.01834627146770807,
+    "precision_pos": 0.05630096553921994,
+    "recall_pos": 0.04849445544817794,
+    "precision_macro": 0.03297880512629201,
+    "recall_macro": 0.028626717535627795,
+    "macro_f1": 0.02999446429142903,
+    "log_loss": 0.04848463234528738,
+    "top1_accuracy": 0.05209796096127592,
+    "n_points": 4549.949593127379,
+    "n_rows": 933.2704324042415,
+    "fit_seconds": 19.988907196724025,
+    "predict_seconds": 0.007148991836101234,
+    "n_val_trips": 0.7071067811865476
+  },
+  "student_test": {
+    "accuracy": 0.9616586661219487,
+    "precision_pos": 0.8611051617048618,
+    "recall_pos": 0.8411527799571107,
+    "precision_macro": 0.9187067906520237,
+    "recall_macro": 0.9104234301989929,
+    "macro_f1": 0.9145051792576784,
+    "log_loss": 0.10361348243340579,
+    "top1_accuracy": 0.8572623216432342,
+    "n_points": 19133,
+    "n_rows": 146865,
+    "route_continuity": 0.9434130014120601,
+    "fit_seconds": 197.86798248999912,
+    "predict_seconds": 0.08527526300167665,
+    "inference_ms_per_1000_points": 4.456972926445233
+  }
+}

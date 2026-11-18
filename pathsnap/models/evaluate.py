@@ -196,24 +196,38 @@ def run(spec: ModelSpec, save_model: bool = True) -> dict:
     return summary
 
 
-def _update_comparison(s: dict) -> None:
-    path = RESULTS_DIR / "models" / "comparison.csv"
+def _comparison_row(s: dict) -> dict:
     t = s["student_test"]
-    row = {
+    return {
         "model": s["model"], "family": s["family"], "config": s["description"],
         "train_fraction": s["train_fraction"],
         "cv_macro_f1": s["cv_mean"]["macro_f1"], "cv_macro_f1_std": s["cv_std"]["macro_f1"],
         "cv_top1": s["cv_mean"]["top1_accuracy"], "cv_top1_std": s["cv_std"]["top1_accuracy"],
+        "cv_row_accuracy": s["cv_mean"]["accuracy"],
         "cv_log_loss": s["cv_mean"]["log_loss"],
-        "test_top1": t["top1_accuracy"], "test_macro_f1": t["macro_f1"],
+        "test_top1": t["top1_accuracy"], "test_row_accuracy": t["accuracy"],
+        "test_macro_f1": t["macro_f1"],
         "test_precision_macro": t["precision_macro"], "test_recall_macro": t["recall_macro"],
         "test_log_loss": t["log_loss"], "test_route_continuity": t["route_continuity"],
         "fit_seconds": t["fit_seconds"],
         "inference_ms_per_1000_points": t["inference_ms_per_1000_points"],
     }
+
+
+def _update_comparison(s: dict) -> None:
+    """Insert/replace this model's row in results/models/comparison.csv."""
+    path = RESULTS_DIR / "models" / "comparison.csv"
     df = pd.read_csv(path) if path.exists() else pd.DataFrame()
     if len(df):
         df = df[df["model"] != s["model"]]
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True).sort_values("cv_macro_f1",
-                                                                             ascending=False)
-    df.to_csv(path, index=False)
+    df = pd.concat([df, pd.DataFrame([_comparison_row(s)])], ignore_index=True)
+    df.sort_values("cv_macro_f1", ascending=False).to_csv(path, index=False)
+
+
+def rebuild_comparison() -> pd.DataFrame:
+    """Recreate comparison.csv from every saved results/models/<model>/metrics.json."""
+    rows = [_comparison_row(json.loads(p.read_text()))
+            for p in sorted((RESULTS_DIR / "models").glob("*/metrics.json"))]
+    df = pd.DataFrame(rows).sort_values("cv_macro_f1", ascending=False)
+    df.to_csv(RESULTS_DIR / "models" / "comparison.csv", index=False)
+    return df

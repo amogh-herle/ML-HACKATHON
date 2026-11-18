@@ -8,10 +8,7 @@ writes PNGs to results/models/plots/.
 """
 from __future__ import annotations
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # figures are only saved and closed, never shown
 import numpy as np
 import pandas as pd
 
@@ -44,15 +41,18 @@ def main() -> None:
     ax.set_ylim(min(0.5, comp["cv_macro_f1"].min() - 0.05), 1.0)
     fig.tight_layout(); fig.savefig(OUT / "cv_macro_f1.png", dpi=150); plt.close(fig)
 
-    # 2. student-test top-1 and macro F1 side by side
-    fig, ax = plt.subplots(figsize=(9, 4))
-    x = np.arange(len(names)); w = 0.38
-    ax.bar(x - w / 2, comp["test_top1"], w, label="Top-1 accuracy (per GPS point)", color=ACCENT)
-    ax.bar(x + w / 2, comp["test_macro_f1"], w, label="Macro F1 (per candidate row)", color=GREY)
-    for i, (a, b) in enumerate(zip(comp["test_top1"], comp["test_macro_f1"])):
-        ax.text(i - w / 2, a, f"{a:.3f}", ha="center", va="bottom", fontsize=8)
-        ax.text(i + w / 2, b, f"{b:.3f}", ha="center", va="bottom", fontsize=8)
-    ax.set_xticks(x, names); ax.set_ylim(0.5, 1.0); ax.legend(loc="lower right")
+    # 2. student-test top-1 accuracy, macro F1 and row accuracy side by side
+    fig, ax = plt.subplots(figsize=(11, 4))
+    x = np.arange(len(names)); w = 0.27
+    series = [("test_top1", "Top-1 accuracy (per GPS point)", ACCENT),
+              ("test_macro_f1", "Macro F1 (per candidate row)", GREY),
+              ("test_row_accuracy", "Accuracy (per candidate row)", "#d9d9d9")]
+    for j, (col, label, color) in enumerate(series):
+        ax.bar(x + (j - 1) * w, comp[col], w, label=label, color=color)
+        for i, v in enumerate(comp[col]):
+            ax.text(i + (j - 1) * w, v, f"{v:.3f}", ha="center", va="bottom", fontsize=7)
+    ax.set_xticks(x, names); ax.set_ylim(0.5, 1.1)
+    ax.legend(loc="upper center", ncol=3, fontsize=8, frameon=False)
     ax.set_title("Student-test performance (10 trips)")
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout(); fig.savefig(OUT / "student_test_top1_f1.png", dpi=150); plt.close(fig)
