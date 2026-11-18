@@ -7,6 +7,15 @@ venv/
 
 # Raw data stays outside the repo (set PATHSNAP_DATA)
 Student folder/
+# a partition folder dropped into the repo by mistake, and raw trip files anywhere:
+# the evaluator ground truth (.route) must never reach GitHub
+/train/
+/student_test/
+/evaluator_test/
+*.track
+*.nodes
+*.arcs
+*.route
 *.zip
 data/raw/
 
