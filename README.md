@@ -241,7 +241,7 @@ prints it at start-up.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /health` | status, served partition, number of trips, HMM settings |
+| `GET /health` | status, served partition, number of trips, HMM settings, uptime in seconds |
 | `GET /trips` | trip ids of the served partition |
 | `GET /trips/{trip_id}/gps` | raw GPS observations `[lon, lat]` |
 | `POST /predict` `{"trip_id": "..."}` | predicted arc per observation, predicted route (GeoJSON), accuracy, timings |
@@ -285,6 +285,19 @@ terminal visible during the demo: it shows every request and its accuracy.
 upload it with `notebooks/colab/colab_gpu.ipynb` (GPU HPO) or `colab_rerun.ipynb` (full rerun).
 Settings: `PATHSNAP_DATA`, `PATHSNAP_JOBS`, `PATHSNAP_XGB_DEVICE`, `PATHSNAP_STUDY`,
 `PATHSNAP_HPO_MODEL`.
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| `Data folder not found` when starting the API | `Student folder/` is not next to the repo. Move it there or set `PATHSNAP_DATA` (the variable lasts only for that terminal window). |
+| `Partition 'evaluator_test' not found` | The partition folder is missing from `Student folder/`. Start with `--partition student_test` to practise, or copy the folder in. |
+| UI says *Cannot reach the API* | Check that the address is Laptop 1's LAN IP (printed in the start-up banner), both laptops are on the same network, and port 8000 is allowed in Laptop 1's firewall. Test from Laptop 2 with `http://<ip>:8000/health` in a browser. |
+| UI shows a red *PRACTICE MODE* status | The API is serving `student_test`. Restart it with `--partition evaluator_test` for the demo. |
+| Map has no background tiles | No internet on Laptop 2. The GPS track and predicted route still draw. |
+| `ImportError` / missing `libomp` on macOS | Run `brew install libomp`; XGBoost needs the OpenMP runtime. |
+| `git status` shows every file as modified on Windows | Line endings only (CRLF vs LF). Run `git config core.autocrlf true` and `git add --renormalize .`; `.gitattributes` already fixes `.bat` and `.sh`. |
+| Results differ from the tables above | Make sure `requirements.txt` versions are installed and `SEED = 42` is unchanged in `config.py`; regenerate with `python -m pathsnap.reproduce`. |
 
 ## Leakage rules
 

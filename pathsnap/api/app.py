@@ -6,7 +6,7 @@ or to the UI: responses contain the GPS observations, the predicted arcs/route g
 summary accuracy numbers only.
 
 Endpoints
-    GET  /health               model + configuration status
+    GET  /health               model + configuration status + uptime
     GET  /trips                trip ids of the evaluation partition
     GET  /trips/{trip_id}/gps  raw GPS observations of a trip (for drawing before prediction)
     POST /predict              {"trip_id": "..."} -> predicted route + accuracy
@@ -60,6 +60,7 @@ STATE: dict = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     t0 = time.perf_counter()
+    STATE["started"] = time.time()
     STATE["matcher"] = Matcher()
     STATE["partition"] = _partition()
     STATE["trips"] = list_trips(STATE["partition"])
@@ -115,6 +116,7 @@ async def access_log(request: Request, call_next):
 def health():
     m = STATE["matcher"]
     return {"status": "ok", "partition": STATE["partition"], "n_trips": len(STATE["trips"]),
+            "uptime_s": round(time.time() - STATE["started"]),
             "model": "final_model.joblib (tuned XGBoost)",
             "hmm": {"beta": m.params.beta, "emission_weight": m.params.emission_weight,
                     "max_mismatch_m": m.params.max_mismatch_m}}

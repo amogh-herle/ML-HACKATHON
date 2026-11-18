@@ -142,7 +142,7 @@
     $("log").prepend(line);
   }
   function setStatus(el, msg, cls) { el.textContent = msg; el.className = "status" + (cls ? " " + cls : ""); }
-  const pct = v => (100 * v).toFixed(1) + "%";
+  const pct = v => (v == null || Number.isNaN(v)) ? "n/a" : (100 * v).toFixed(1) + "%";
   async function call(path, opts = {}) {
     const t0 = performance.now();
     let res;
