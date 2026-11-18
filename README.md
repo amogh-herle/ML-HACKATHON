@@ -179,13 +179,19 @@ untuned configuration. The full search record is `results/hpo/xgb_study.db`
 
 ## Google Colab (GPU)
 
-`notebooks/colab_gpu.ipynb` runs the pipeline on a Colab T4 GPU: clone (read-only
-token from Colab *Secrets* as `GITHUB_TOKEN`), install, unzip the data from
-Google Drive, preprocess, a GPU-vs-CPU speed check, the XGBoost Optuna search on
-the GPU (`PATHSNAP_XGB_DEVICE=cuda`, own study `xgb_top1_gpu`), refit, and copy
-outputs back to Drive. Open it via
-[Colab › GitHub](https://colab.research.google.com/github/amogh-herle/ML-HACKATHON/blob/main/notebooks/colab_gpu.ipynb)
-(authorise GitHub access for the private repo) or *File › Upload notebook*.
+No GitHub access is needed on Colab; everything is uploaded by hand.
+
+```bash
+python -m pathsnap.colab_bundle     # -> ../colab/pathsnap_colab.zip (code + raw data, ~30 MB)
+```
+
+In Colab: *File › Upload notebook* → `notebooks/colab_gpu.ipynb`, *Runtime › Change
+runtime type › T4 GPU*, upload `pathsnap_colab.zip` in the Files panel (or let the
+notebook's upload dialog ask for it), then run all cells. The notebook installs
+the packages (full `xgboost` wheel with CUDA), preprocesses, runs a GPU-vs-CPU
+speed check, the XGBoost Optuna search on the GPU (`PATHSNAP_XGB_DEVICE=cuda`,
+own study `xgb_top1_gpu`), refits, and downloads an outputs zip to unzip inside
+the repo.
 
 Environment settings: `PATHSNAP_DATA` (data path), `PATHSNAP_JOBS` (threads),
 `PATHSNAP_XGB_DEVICE` (`cpu`/`cuda`), `PATHSNAP_STUDY` (Optuna study name).
