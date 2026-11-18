@@ -26,3 +26,6 @@ data/raw/
 
 # per-model weights (final chosen model is copied to artifacts/ and committed)
 artifacts/models/
+
+# API logs
+logs/

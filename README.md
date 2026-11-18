@@ -192,6 +192,28 @@ analysis in `notebooks/05_hmm.ipynb`. `pathsnap/pipeline.py` (`Matcher`) runs
 the whole inference for one trip (what the API calls); `score_trip` scores it
 against the reference server-side.
 
+## API (Laptop 1)
+
+```bash
+python -m pathsnap.api                         # 0.0.0.0:8000, prints the LAN address for the UI
+PATHSNAP_PARTITION=evaluator_test python -m pathsnap.api   # serve another partition folder
+```
+
+| Endpoint | Returns |
+|---|---|
+| `GET /health` | status, served partition, number of trips, HMM settings |
+| `GET /trips` | trip ids of the served partition |
+| `GET /trips/{trip_id}/gps` | raw GPS observations `[lon, lat]` |
+| `POST /predict` `{"trip_id": "..."}` | per-observation predicted arc, predicted route geometry (GeoJSON MultiLineString), accuracy metrics, timings |
+
+`/predict` runs `pathsnap.pipeline.Matcher` (cleaning, candidates, classifier, HMM)
+without the reference route, then scores the result server-side (`score_trip`).
+The reference route is never included in a response. Every request is logged to
+the terminal and `logs/api.log` (client, trip, points, accuracy, timings).
+Served partition: `PATHSNAP_PARTITION`, default `evaluator_test` if that folder
+exists under `PATHSNAP_DATA`, else `student_test`. Interactive docs: `/docs`.
+On the two-laptop network, allow incoming TCP 8000 in the firewall of Laptop 1.
+
 ## Google Colab (GPU)
 
 No GitHub access is needed on Colab; everything is uploaded by hand.
