@@ -1,26 +1,26 @@
 # core data
-numpy
-pandas
-pyarrow
-scipy
-pyproj
-shapely
-networkx
+numpy==2.5.5
+pandas==3.1.1
+pyarrow==26.0.1
+scipy==1.18.1
+pyproj==3.8.0
+shapely==2.2.0
+networkx==3.7
 
 # models + HPO
-scikit-learn
-lightgbm
-xgboost
-optuna
-joblib
+scikit-learn==1.9.1
+lightgbm==4.7.0
+xgboost-cpu==3.4.1
+optuna==5.1.0
+joblib==1.6.0
 
 # visualisation
-matplotlib
-seaborn
-folium
+matplotlib==3.11.2
+seaborn==0.13.2
+folium==1.0.0
 
 # API + UI
-fastapi
-uvicorn[standard]
-requests
-streamlit
+fastapi==0.163.2
+uvicorn[standard]==0.54.0
+requests==2.34.2
+streamlit==1.67.0

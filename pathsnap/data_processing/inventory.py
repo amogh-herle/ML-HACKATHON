@@ -19,13 +19,13 @@ from pathsnap.config import PARTITIONS, RESULTS_DIR
 from pathsnap.data_processing.loader import list_trips, load_trip, trip_dir
 
 GAP_S = 10.0          # time gap (s) flagged as a GPS dropout
-MAX_SPEED_MS = 50.0   # ~180 km/h; faster implied speed = likely GPS jump
+from pathsnap.config import MAX_SPEED_MS  # implied speed above this = likely GPS jump
 
 
 def trip_stats(trip) -> dict:
     tr, nodes, arcs, route = trip.track, trip.nodes, trip.arcs, trip.route
     n_nodes = len(nodes)
-    s: dict = {"trip_id": trip.trip_id, "partition": trip.partition}
+    s: dict = {"trip_id": trip.trip_id, "partition": trip.partition, "crs": trip.crs}
 
     # file sizes
     d = trip_dir(trip.trip_id, trip.partition)
@@ -51,7 +51,7 @@ def trip_stats(trip) -> dict:
         n_duplicate_pos=int((step == 0).sum()),
         path_length_m=float(step.sum()),
         median_speed_ms=float(np.median(speed[np.isfinite(speed)])),
-        n_speed_gt_50ms=int((speed > MAX_SPEED_MS).sum()),
+        n_speed_gt_max=int((speed > MAX_SPEED_MS).sum()),
         lon_min=tr["lon"].min(), lon_max=tr["lon"].max(),
         lat_min=tr["lat"].min(), lat_max=tr["lat"].max(),
     )
@@ -119,7 +119,7 @@ def run(partition: str) -> pd.DataFrame:
 
 def summarise(df: pd.DataFrame) -> None:
     cols = ["n_points", "duration_s", "frac_dt_1s", "max_dt", "n_gaps_gt_10s",
-            "n_speed_gt_50ms", "n_nodes", "n_arcs", "n_weak_components",
+            "n_speed_gt_max", "n_nodes", "n_arcs", "n_weak_components",
             "largest_wcc_frac", "n_route_arcs", "route_continuity", "n_route_breaks"]
     print(df[cols].describe().T[["min", "50%", "mean", "max"]].round(3).to_string())
     flags = {

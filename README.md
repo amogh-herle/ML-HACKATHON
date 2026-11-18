@@ -48,14 +48,34 @@ export PATHSNAP_DATA="/path/to/Student folder"
 | `.route` | arc_id sequence (reference route) |
 
 Road networks are **per trip**; ids are only valid within their own trip.
-Coordinates are projected to UTM zone 32N (EPSG:32632) for metric distances.
+Trips are spread worldwide, so each trip is projected to the UTM zone of its
+own GPS centroid (`Trip.crs`) for metric distances.
 
 ## Running
 
 ```bash
 # dataset inventory + data-quality checks -> results/eda/inventory_*.csv
 python -m pathsnap.data_processing.inventory
+
+# cleaning + per-observation labels -> data/processed/*_points.parquet,
+#                                       results/eda/preprocess_summary_*.csv
+python -m pathsnap.data_processing.preprocess
 ```
+
+## Preprocessing
+
+1. **Projection** - per-trip UTM zone (`loader.utm_crs_for`).
+2. **Cleaning** (`clean.py`, route-free, reused by the API): flags invalid
+   coordinates / non-increasing timestamps, GPS jumps (implied speed > 85 m/s
+   from last good point), and splits segments at gaps > 30 s. Nothing is
+   dropped; every observation keeps its `obs_idx`.
+3. **Labels** (`labels.py`, training/evaluation only): each GPS point is
+   aligned to one arc of the reference route with a monotonic DP so the route
+   order is respected even when streets are revisited. Points > 50 m from their
+   label arc get `label_reliable = False`; trips whose median distance > 30 m
+   are flagged `suspect_reference`.
+
+Parameters live in `pathsnap/config.py`.
 
 ```python
 from pathsnap.data_processing.loader import load_trip, list_trips
