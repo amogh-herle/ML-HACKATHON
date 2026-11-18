@@ -51,7 +51,38 @@ Road networks are **per trip**; ids are only valid within their own trip.
 Trips are spread worldwide, so each trip is projected to the UTM zone of its
 own GPS centroid (`Trip.crs`) for metric distances.
 
-## Running
+## Reproducing everything (teammates start here)
+
+```bash
+git clone https://github.com/amogh-herle/ML-HACKATHON.git pathsnap
+cd pathsnap
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# raw data: put the extracted "Student folder" next to the repo, or point to it
+export PATHSNAP_DATA="/path/to/Student folder"
+
+python -m pathsnap.reproduce --check        # what is present / missing
+python -m pathsnap.reproduce                # full pipeline + models + notebooks (~40 min)
+python -m pathsnap.reproduce --skip-models  # data, maps and notebooks 01-02 only (~2 min)
+```
+
+Notebooks (`notebooks/01_eda`, `02_preprocessing`, `03_model_comparison`) are committed
+with their outputs. To rerun them yourself, use the repo's `.venv` as the kernel:
+
+```bash
+python -m ipykernel install --user --name pathsnap --display-name "PathSnap (.venv)"
+```
+
+then pick **PathSnap (.venv)** as the kernel (VS Code: *Select Kernel* > *Jupyter Kernel*).
+Each notebook's first cell finds the repo, checks the raw data, and builds
+`data/processed/` if it is missing; notebook 03 also trains any missing model
+(`TRAIN_IF_MISSING`). Large files (`data/processed/*.parquet`,
+`artifacts/models/*.joblib`) are not in git and are regenerated this way.
+Preprocessing is deterministic; models use `SEED = 42`.
+
+## Running individual steps
 
 ```bash
 # dataset inventory + data-quality checks -> results/eda/inventory_*.csv
