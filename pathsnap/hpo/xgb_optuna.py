@@ -164,8 +164,14 @@ def refit() -> None:
         "selected_by": "Optuna TPE, objective = mean 5-fold GroupKFold top-1 accuracy on train",
         "student_test": summary["student_test"]}, indent=2, default=float))
 
-    # tuned vs untuned
+    compare()
+
+
+def compare() -> pd.DataFrame:
+    """Tuned vs untuned from the saved metrics.json of both runs (same folds, same test trips).
+    Both must be trained on the same feature version - rerun `train xgb` after feature changes."""
     base = json.loads((RESULTS_DIR / "models" / "xgb" / "metrics.json").read_text())
+    summary = json.loads((RESULTS_DIR / "models" / "xgb_tuned" / "metrics.json").read_text())
     rows = []
     for label, s in [("untuned", base), ("tuned", summary)]:
         t = s["student_test"]
@@ -178,15 +184,19 @@ def refit() -> None:
     cmp = pd.DataFrame(rows)
     cmp.to_csv(OUT / "xgb_tuned_vs_untuned.csv", index=False)
     print(cmp.round(4).to_string(index=False))
+    return cmp
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--trials", type=int, default=40, help="total trials in the study")
     ap.add_argument("--refit", action="store_true")
+    ap.add_argument("--compare", action="store_true", help="only rebuild tuned-vs-untuned table")
     a = ap.parse_args()
     optuna.logging.set_verbosity(optuna.logging.INFO)
-    if a.refit:
+    if a.compare:
+        compare()
+    elif a.refit:
         refit()
     else:
         search(a.trials)

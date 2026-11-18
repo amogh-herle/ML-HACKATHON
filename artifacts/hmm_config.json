@@ -1,0 +1,22 @@
+{
+  "beta": 40.0,
+  "emission_weight": 2.0,
+  "max_mismatch_m": 300.0,
+  "chosen_by": "train out-of-fold top-1 grid search",
+  "grid": {
+    "beta": [
+      2,
+      5,
+      10,
+      20,
+      40,
+      80,
+      160
+    ],
+    "emission_weight": [
+      0.5,
+      1.0,
+      2.0
+    ]
+  }
+}

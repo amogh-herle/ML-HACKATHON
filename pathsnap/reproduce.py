@@ -20,7 +20,8 @@ from pathsnap.config import ARTIFACTS_DIR, DATA_ROOT, PARTITIONS, PROCESSED_DIR,
 
 # 04 reads the committed Optuna study (results/hpo/xgb_study.db); rerunning the search itself is
 # a separate ~40 min step: python -m pathsnap.hpo.xgb_optuna --trials 50 && ... --refit
-NOTEBOOKS = ["01_eda.ipynb", "02_preprocessing.ipynb", "03_model_comparison.ipynb", "04_hpo.ipynb"]
+NOTEBOOKS = ["01_eda.ipynb", "02_preprocessing.ipynb", "03_model_comparison.ipynb", "04_hpo.ipynb",
+             "05_hmm.ipynb"]
 
 
 class SetupError(RuntimeError):

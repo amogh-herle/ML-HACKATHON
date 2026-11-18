@@ -177,6 +177,21 @@ untuned configuration. The full search record is `results/hpo/xgb_study.db`
 (SQLite) and `results/hpo/xgb_trials.csv`. The tuned model becomes
 `artifacts/final_model.joblib` (+ `final_model.json`). See `notebooks/04_hpo.ipynb`.
 
+## HMM / Viterbi route reconstruction
+
+```bash
+python -m pathsnap.hmm.run     # tune beta / emission weight on train (out-of-fold), evaluate on student test
+```
+
+States = candidate arcs per GPS observation; emission = normalised classifier
+probability; transition = `-|route distance - GPS distance| / beta` with route
+distances from a bounded Dijkstra on the trip's network (Newson & Krumm);
+no-path pairs get a capped penalty; chains restart at gaps > 30 s; Viterbi in
+log space. Config in `artifacts/hmm_config.json`, results in `results/hmm/`,
+analysis in `notebooks/05_hmm.ipynb`. `pathsnap/pipeline.py` (`Matcher`) runs
+the whole inference for one trip (what the API calls); `score_trip` scores it
+against the reference server-side.
+
 ## Google Colab (GPU)
 
 No GitHub access is needed on Colab; everything is uploaded by hand.

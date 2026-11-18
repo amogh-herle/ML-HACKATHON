@@ -1,0 +1,44 @@
+[train] probabilities in 55 s
+[train] lattices for 80 trips in 71 s
+  beta=   2 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8111
+  beta=   2 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8234
+  beta=   2 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8430
+  beta=   5 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8288
+  beta=   5 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8507
+  beta=   5 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8738
+  beta=  10 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8507
+  beta=  10 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8738
+  beta=  10 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8878
+  beta=  20 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8738
+  beta=  20 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8878
+  beta=  20 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8936
+  beta=  40 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8878
+  beta=  40 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8936
+  beta=  40 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8939
+  beta=  80 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8936
+  beta=  80 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8939
+  beta=  80 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8917
+  beta= 160 w=0.5: train top-1 classifier 0.8838 -> HMM 0.8939
+  beta= 160 w=1.0: train top-1 classifier 0.8838 -> HMM 0.8917
+  beta= 160 w=2.0: train top-1 classifier 0.8838 -> HMM 0.8888
+grid search 42 s -> best on train: HMMParams(beta=40.0, emission_weight=2.0, max_mismatch_m=300.0)
+[student_test] probabilities in 0 s
+[student_test] lattices for 10 trips in 8 s
+top1_classifier                  0.8832
+top1_hmm                         0.8963
+continuity_cls                   0.9526
+route_precision_cls              0.7387
+route_recall_cls                 0.9947
+route_f1_cls                     0.8431
+continuity_hmm                   0.9748
+route_precision_hmm              0.8563
+route_recall_hmm                 0.9895
+route_f1_hmm                     0.9156
+route_breaks_cls               100.0000
+route_breaks_hmm                13.0000
+n_points                     19133.0000
+param_beta                      40.0000
+param_emission_weight            2.0000
+param_max_mismatch_m           300.0000
+train_top1_classifier_oof        0.8838
+train_top1_hmm_oof               0.8939

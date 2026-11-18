@@ -91,11 +91,15 @@ def trip_map(trip: Trip, clean: pd.DataFrame | None = None,
         legend["Reference route"] = COLORS["reference"]
 
     if predicted_arcs is not None:
-        pa = np.asarray(predicted_arcs, dtype=int)
-        folium.GeoJson(_arc_multiline(trip, pa), name=f"Predicted route ({len(pa)} arcs)",
-                       style_function=lambda _: {"color": COLORS["predicted"], "weight": 3,
-                                                 "opacity": 0.9, "dashArray": "6 4"}).add_to(m)
-        legend["Predicted route"] = COLORS["predicted"]
+        # a list -> one "Predicted route" layer; a dict {name: arcs} -> one layer per entry
+        layers = predicted_arcs if isinstance(predicted_arcs, dict) else {"Predicted route": predicted_arcs}
+        palette = [COLORS["predicted"], "#9467bd", "#8c564b"]
+        for (name, arcs_), color in zip(layers.items(), palette):
+            pa = np.asarray(arcs_, dtype=int)
+            folium.GeoJson(_arc_multiline(trip, pa), name=f"{name} ({len(pa)} arcs)",
+                           style_function=lambda _, c=color: {"color": c, "weight": 3,
+                                                              "opacity": 0.9, "dashArray": "6 4"}).add_to(m)
+            legend[name] = color
 
     # GPS observations (good vs flagged outliers)
     bad = (clean["is_outlier"] | clean["is_invalid"]).to_numpy()
