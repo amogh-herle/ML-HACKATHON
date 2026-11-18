@@ -1,0 +1,58 @@
+{
+  "model": "xgb_rank",
+  "family": "Boosting (learning to rank)",
+  "description": "XGBRanker(rank:ndcg, 400 trees, lr=0.05, max_depth=6); softmax per observation",
+  "config": "GroupRanker(estimator=XGBRanker(base_score=None, booster=None, callbacks=None,\n                                colsample_bylevel=None, colsample_bynode=None,\n                                colsample_bytree=None, device='cpu',\n                                early_stopping_rounds=None,\n                                enable_categorical=True, eval_metric='ndcg@1',\n                                feature_types=None, feature_weights=None,\n                                gamma=None, grow_policy=None,\n                                importance_type=None,\n                                interaction_constraints=None,\n                                learning_rate=0.05, max_bin=None,\n                                max_cat_threshold=None, max_cat_to_onehot=None,\n                                max_delta_step=None, max_depth=6,\n                                max_leaves=None, min_child_weight=None,\n                                missing=nan, monotone_constraints=None,\n                                multi_strategy=None, n_estimators=400, n_jobs=8,\n                                num_parallel_tree=None, ...))",
+  "train_fraction": 1.0,
+  "seed": 42,
+  "n_folds": 5,
+  "notes": [
+    "Trained on each GPS observation's candidates as one group; scores turned into probabilities with a softmax inside the group."
+  ],
+  "cv_mean": {
+    "accuracy": 0.9743428705729975,
+    "precision_pos": 0.9308249426866549,
+    "recall_pos": 0.885161256413526,
+    "precision_macro": 0.956013751030609,
+    "recall_macro": 0.9370765762124528,
+    "macro_f1": 0.9462007373339951,
+    "log_loss": 0.06459217122855629,
+    "top1_accuracy": 0.9022729729566438,
+    "n_points": 37015.2,
+    "n_rows": 262253.8,
+    "fit_seconds": 31.241329073400266,
+    "predict_seconds": 1.023515508401033,
+    "n_val_trips": 16.0
+  },
+  "cv_std": {
+    "accuracy": 0.009804849523444783,
+    "precision_pos": 0.028708432120199277,
+    "recall_pos": 0.036900747839928076,
+    "precision_macro": 0.01745978452125384,
+    "recall_macro": 0.02043989886122869,
+    "macro_f1": 0.018684164293939442,
+    "log_loss": 0.021020408846286316,
+    "top1_accuracy": 0.03211392745385991,
+    "n_points": 4611.1132278442265,
+    "n_rows": 930.5445717428048,
+    "fit_seconds": 1.894273849124841,
+    "predict_seconds": 0.20805990055398146,
+    "n_val_trips": 0.7071067811865476
+  },
+  "student_test": {
+    "accuracy": 0.9782929901610322,
+    "precision_pos": 0.9418127357443976,
+    "recall_pos": 0.8881159117062454,
+    "precision_macro": 0.9626051811013178,
+    "recall_macro": 0.9399521842890155,
+    "macro_f1": 0.9508758558949446,
+    "log_loss": 0.05643734097398371,
+    "top1_accuracy": 0.9112528092823917,
+    "n_points": 19133,
+    "n_rows": 146865,
+    "route_continuity": 0.9578996914387323,
+    "fit_seconds": 40.43375669800298,
+    "predict_seconds": 0.48858704899976146,
+    "inference_ms_per_1000_points": 25.53635336851312
+  }
+}

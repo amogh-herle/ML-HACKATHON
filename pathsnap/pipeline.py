@@ -24,6 +24,7 @@ from pathsnap.data_processing.loader import load_route, load_trip
 from pathsnap.features.candidates import FEATURE_COLUMNS, build_candidates
 from pathsnap.hmm.graph import RoadGraph
 from pathsnap.hmm.viterbi import HMMParams, assign_all, build_lattice, decode, reconstruct_route
+from pathsnap.models.ranker import predict_p
 
 
 @dataclass
@@ -54,7 +55,8 @@ class Matcher:
 
         t0 = time.perf_counter()
         cand = build_candidates(clean, trip.nodes, trip.arcs)
-        cand["p"] = self.model.predict_proba(cand[FEATURE_COLUMNS].to_numpy())[:, 1]
+        cand.insert(0, "trip_id", trip_id)
+        cand["p"] = predict_p(self.model, cand)
         t["candidates_classifier"] = time.perf_counter() - t0
 
         t0 = time.perf_counter()

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from lightgbm import LGBMClassifier
+from lightgbm import LGBMClassifier, LGBMRanker
 from sklearn.ensemble import (AdaBoostClassifier, HistGradientBoostingClassifier,
                               RandomForestClassifier)
 from sklearn.linear_model import LogisticRegression, SGDClassifier
@@ -18,10 +18,11 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-from xgboost import XGBClassifier
+from xgboost import XGBClassifier, XGBRanker
 
 from pathsnap.config import SEED
 from pathsnap.models.evaluate import ModelSpec
+from pathsnap.models.ranker import GroupRanker
 
 JOBS = int(os.environ.get("PATHSNAP_JOBS", 8))  # threads; 8 leaves cores/RAM for the laptop
 
@@ -58,6 +59,20 @@ REGISTRY: dict[str, ModelSpec] = {s.name: s for s in [
                             device=os.environ.get("PATHSNAP_XGB_DEVICE", "cpu"),
                             n_jobs=JOBS, random_state=SEED, eval_metric="logloss"),
               "XGBoost(400 trees, lr=0.05, max_depth=6, hist)"),
+    ModelSpec("xgb_rank", "Boosting (learning to rank)",
+              GroupRanker(XGBRanker(objective="rank:ndcg", n_estimators=400, learning_rate=0.05,
+                                    max_depth=6, tree_method="hist",
+                                    device=os.environ.get("PATHSNAP_XGB_DEVICE", "cpu"),
+                                    n_jobs=JOBS, random_state=SEED, eval_metric="ndcg@1")),
+              "XGBRanker(rank:ndcg, 400 trees, lr=0.05, max_depth=6); softmax per observation",
+              notes=["Trained on each GPS observation's candidates as one group; scores turned "
+                     "into probabilities with a softmax inside the group."]),
+    ModelSpec("lgbm_rank", "Boosting (learning to rank)",
+              GroupRanker(LGBMRanker(objective="lambdarank", n_estimators=400, learning_rate=0.05,
+                                     num_leaves=63, n_jobs=JOBS, random_state=SEED, verbose=-1)),
+              "LGBMRanker(lambdarank, 400 trees, lr=0.05, num_leaves=63); softmax per observation",
+              notes=["Trained on each GPS observation's candidates as one group; scores turned "
+                     "into probabilities with a softmax inside the group."]),
     ModelSpec("hgb", "Boosting",
               HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=SEED),
               "HistGradientBoosting(300 iters, lr=0.05)"),

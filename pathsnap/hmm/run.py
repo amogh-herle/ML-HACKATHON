@@ -33,6 +33,7 @@ from pathsnap.features.candidates import FEATURE_COLUMNS
 from pathsnap.hmm.graph import RoadGraph
 from pathsnap.hmm.viterbi import HMMParams, assign_all, build_lattice, decode, reconstruct_route
 from pathsnap.models.evaluate import N_FOLDS
+from pathsnap.models.ranker import fit_model, predict_p
 
 OUT = RESULTS_DIR / "hmm"
 BETAS = [2, 5, 10, 20, 40, 80, 160]
@@ -47,14 +48,14 @@ def load_all_candidates(partition: str) -> pd.DataFrame:
 def probabilities(partition: str, cand: pd.DataFrame) -> np.ndarray:
     model = joblib.load(ARTIFACTS_DIR / "final_model.joblib")
     if partition != "train":
-        return model.predict_proba(cand[FEATURE_COLUMNS].to_numpy())[:, 1]
+        return predict_p(model, cand)
     # out-of-fold: each train trip scored by a model that never saw it
     p = np.zeros(len(cand))
     fit_rows = cand["label_reliable"].to_numpy()
     for tr, va in GroupKFold(n_splits=N_FOLDS).split(cand, groups=cand["trip_id"]):
         tr = tr[fit_rows[tr]]
-        m = clone(model).fit(cand.iloc[tr][FEATURE_COLUMNS].to_numpy(), cand.iloc[tr]["label"].to_numpy())
-        p[va] = m.predict_proba(cand.iloc[va][FEATURE_COLUMNS].to_numpy())[:, 1]
+        m = fit_model(clone(model), cand.iloc[tr])
+        p[va] = predict_p(m, cand.iloc[va])
     return p
 
 

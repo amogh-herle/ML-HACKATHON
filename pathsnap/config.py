@@ -43,5 +43,6 @@ HEADING_WIDE_WINDOW = 3        # wide heading: from the 3rd good point before to
 # so a wrong-direction copy at the same position loses, but a correct-direction arc up to
 # ~20 m farther still wins. Fixed by reasoning, not tuned on any test data.
 HEADING_PENALTY_M = 20.0
+CONTEXT_WINDOW = 5             # neighbouring observations on each side for the support features
 
 SEED = 42

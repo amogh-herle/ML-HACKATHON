@@ -114,11 +114,12 @@ class ModelSpec:
 
 
 def _fit_predict(est, train: pd.DataFrame, test: pd.DataFrame):
+    from pathsnap.models.ranker import fit_model, predict_p
     t0 = time.perf_counter()
-    est.fit(train[FEATURE_COLUMNS].to_numpy(), train["label"].to_numpy())
+    fit_model(est, train)
     fit_s = time.perf_counter() - t0
     t0 = time.perf_counter()
-    proba = est.predict_proba(test[FEATURE_COLUMNS].to_numpy())[:, 1]
+    proba = predict_p(est, test)
     pred_s = time.perf_counter() - t0
     return est, proba, fit_s, pred_s
 

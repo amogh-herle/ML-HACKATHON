@@ -1,0 +1,58 @@
+{
+  "model": "lgbm_rank",
+  "family": "Boosting (learning to rank)",
+  "description": "LGBMRanker(lambdarank, 400 trees, lr=0.05, num_leaves=63); softmax per observation",
+  "config": "GroupRanker(estimator=LGBMRanker(learning_rate=0.05, n_estimators=400, n_jobs=8,\n                                 num_leaves=63, objective='lambdarank',\n                                 random_state=42, verbose=-1))",
+  "train_fraction": 1.0,
+  "seed": 42,
+  "n_folds": 5,
+  "notes": [
+    "Trained on each GPS observation's candidates as one group; scores turned into probabilities with a softmax inside the group."
+  ],
+  "cv_mean": {
+    "accuracy": 0.9748360684045976,
+    "precision_pos": 0.9296865024636431,
+    "recall_pos": 0.8894183860752614,
+    "precision_macro": 0.955802555568112,
+    "recall_macro": 0.9391341966285109,
+    "macro_f1": 0.9471957149835317,
+    "log_loss": 0.06433731276741476,
+    "top1_accuracy": 0.9041199745701359,
+    "n_points": 37015.2,
+    "n_rows": 262253.8,
+    "fit_seconds": 25.078508078400773,
+    "predict_seconds": 3.278305489399645,
+    "n_val_trips": 16.0
+  },
+  "cv_std": {
+    "accuracy": 0.009734835844161675,
+    "precision_pos": 0.028268734507568567,
+    "recall_pos": 0.03840711458912683,
+    "precision_macro": 0.017280777720491216,
+    "recall_macro": 0.02121905696721383,
+    "macro_f1": 0.019108644131020844,
+    "log_loss": 0.02170611573316293,
+    "top1_accuracy": 0.032879711874711295,
+    "n_points": 4611.1132278442265,
+    "n_rows": 930.5445717428048,
+    "fit_seconds": 0.8545331751217675,
+    "predict_seconds": 1.3680513505914131,
+    "n_val_trips": 0.7071067811865476
+  },
+  "student_test": {
+    "accuracy": 0.9764749940421475,
+    "precision_pos": 0.9320350857836377,
+    "recall_pos": 0.8837221466680615,
+    "precision_macro": 0.9573837284780482,
+    "recall_macro": 0.9370390422882919,
+    "macro_f1": 0.9468826486293904,
+    "log_loss": 0.05693203621896227,
+    "top1_accuracy": 0.902210839910103,
+    "n_points": 19133,
+    "n_rows": 146865,
+    "route_continuity": 0.9558077506406568,
+    "fit_seconds": 29.467409823999333,
+    "predict_seconds": 1.4016444440021587,
+    "inference_ms_per_1000_points": 73.25795452893736
+  }
+}

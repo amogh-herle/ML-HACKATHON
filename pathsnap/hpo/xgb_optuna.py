@@ -28,18 +28,21 @@ import numpy as np
 import optuna
 import pandas as pd
 from sklearn.model_selection import GroupKFold
-from xgboost import XGBClassifier
+from xgboost import XGBClassifier, XGBRanker
 
 from pathsnap.config import ARTIFACTS_DIR, RESULTS_DIR, SEED
 from pathsnap.features.candidates import FEATURE_COLUMNS
 from pathsnap.models.evaluate import N_FOLDS, ModelSpec, evaluate, load_candidates, run
+from pathsnap.models.ranker import GroupRanker, point_groups
 
 OUT = RESULTS_DIR / "hpo"
 # Overridable from the environment, e.g. on Colab:
 #   PATHSNAP_XGB_DEVICE=cuda   train on the GPU (needs the full `xgboost` wheel, not xgboost-cpu)
 #   PATHSNAP_STUDY=xgb_top1_gpu  keep GPU trials in their own study (GPU and CPU results are
 #                                close but not bit-identical, so they are not mixed)
-STUDY_NAME = os.environ.get("PATHSNAP_STUDY", "xgb_top1")
+# PATHSNAP_HPO_MODEL: "xgb" (classifier) or "xgb_rank" (LambdaRank ranker)
+HPO_MODEL = os.environ.get("PATHSNAP_HPO_MODEL", "xgb")
+STUDY_NAME = os.environ.get("PATHSNAP_STUDY", "xgb_top1" if HPO_MODEL == "xgb" else "xgb_rank_top1")
 STORAGE = f"sqlite:///{OUT / 'xgb_study.db'}"
 JOBS = int(os.environ.get("PATHSNAP_JOBS", 16))  # threads per XGBoost fit
 DEVICE = os.environ.get("PATHSNAP_XGB_DEVICE", "cpu")
@@ -75,7 +78,12 @@ def suggest(trial: optuna.Trial) -> dict:
     }
 
 
-def make_model(params: dict, jobs: int = JOBS) -> XGBClassifier:
+def make_model(params: dict, jobs: int = JOBS):
+    """XGBoost classifier, or (PATHSNAP_HPO_MODEL=xgb_rank) an XGBoost LambdaRank ranker
+    wrapped so it returns per-observation softmax probabilities."""
+    if HPO_MODEL == "xgb_rank":
+        return GroupRanker(XGBRanker(**params, objective="rank:ndcg", tree_method="hist", device=DEVICE,
+                                     n_jobs=jobs, random_state=SEED, eval_metric="ndcg@1"))
     return XGBClassifier(**params, tree_method="hist", device=DEVICE, n_jobs=jobs,
                          random_state=SEED, eval_metric="logloss")
 
@@ -83,6 +91,7 @@ def make_model(params: dict, jobs: int = JOBS) -> XGBClassifier:
 def objective_factory(train: pd.DataFrame):
     X = train[FEATURE_COLUMNS].to_numpy()
     y = train["label"].to_numpy()
+    groups = point_groups(train)
     folds = list(GroupKFold(n_splits=N_FOLDS).split(train, groups=train["trip_id"]))
 
     def objective(trial: optuna.Trial) -> float:
@@ -90,8 +99,13 @@ def objective_factory(train: pd.DataFrame):
         top1, f1, ll = [], [], []
         t0 = time.perf_counter()
         for k, (tr, va) in enumerate(folds):
-            m = make_model(params).fit(X[tr], y[tr])
-            met = evaluate(train.iloc[va], m.predict_proba(X[va])[:, 1])
+            m = make_model(params)
+            if getattr(m, "needs_groups", False):
+                m.fit(X[tr], y[tr], groups=groups[tr])
+                p = m.predict_proba(X[va], groups=groups[va])[:, 1]
+            else:
+                p = m.fit(X[tr], y[tr]).predict_proba(X[va])[:, 1]
+            met = evaluate(train.iloc[va], p)
             top1.append(met["top1_accuracy"]); f1.append(met["macro_f1"]); ll.append(met["log_loss"])
             trial.report(float(np.mean(top1)), step=k)
             if trial.should_prune():
@@ -146,8 +160,8 @@ def refit() -> None:
     as every other model), save it as the final classifier, and write the comparison."""
     study = load_study()
     best = study.best_params
-    spec = ModelSpec("xgb_tuned", "Boosting", make_model(best, jobs=min(8, JOBS)),
-                     "XGBoost tuned by Optuna TPE: " + ", ".join(f"{k}={v:.4g}" if isinstance(v, float)
+    spec = ModelSpec("xgb_tuned", "Boosting" if HPO_MODEL == "xgb" else "Boosting (learning to rank)", make_model(best, jobs=min(8, JOBS)),
+                     ("XGBoost" if HPO_MODEL == "xgb" else "XGBRanker") + " tuned by Optuna TPE: " + ", ".join(f"{k}={v:.4g}" if isinstance(v, float)
                                                                  else f"{k}={v}" for k, v in best.items()),
                      notes=[f"best of {len(study.trials)} Optuna trials (objective: CV top-1)"])
     summary = run(spec, save_model=True)
@@ -155,7 +169,8 @@ def refit() -> None:
     # final model for the HMM / API: always saved for CPU inference (the API laptop has no GPU)
     import joblib
     est = joblib.load(ARTIFACTS_DIR / "models" / "xgb_tuned.joblib")
-    est.set_params(device="cpu", n_jobs=8)
+    inner = est.ranker_ if hasattr(est, "ranker_") else est
+    inner.set_params(device="cpu", n_jobs=8)
     joblib.dump(est, ARTIFACTS_DIR / "models" / "xgb_tuned.joblib", compress=3)
     joblib.dump(est, ARTIFACTS_DIR / "final_model.joblib", compress=3)
     (ARTIFACTS_DIR / "final_model.json").write_text(json.dumps({
@@ -170,7 +185,8 @@ def refit() -> None:
 def compare() -> pd.DataFrame:
     """Tuned vs untuned from the saved metrics.json of both runs (same folds, same test trips).
     Both must be trained on the same feature version - rerun `train xgb` after feature changes."""
-    base = json.loads((RESULTS_DIR / "models" / "xgb" / "metrics.json").read_text())
+    base = json.loads((RESULTS_DIR / "models" / ("xgb" if HPO_MODEL == "xgb" else "xgb_rank")
+                       / "metrics.json").read_text())
     summary = json.loads((RESULTS_DIR / "models" / "xgb_tuned" / "metrics.json").read_text())
     rows = []
     for label, s in [("untuned", base), ("tuned", summary)]:

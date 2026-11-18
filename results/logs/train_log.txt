@@ -1,0 +1,74 @@
+
+=== logreg (Linear / probabilistic) ===
+    fold 0: macro F1 0.9005  top-1 0.8464  log loss 0.1341  (7.2 s fit)
+    fold 1: macro F1 0.9257  top-1 0.8980  log loss 0.0892  (8.5 s fit)
+    fold 2: macro F1 0.9275  top-1 0.9009  log loss 0.0861  (5.4 s fit)
+    fold 3: macro F1 0.9136  top-1 0.8582  log loss 0.1134  (8.5 s fit)
+    fold 4: macro F1 0.9230  top-1 0.8871  log loss 0.1183  (7.2 s fit)
+  CV macro F1 0.9181 ± 0.0112 | test top-1 0.8691 | test macro F1 0.9126 | log loss 0.0995 | continuity 0.9324
+
+=== dtree (Tree-based) ===
+    fold 0: macro F1 0.9208  top-1 0.8619  log loss 0.1202  (30.3 s fit)
+    fold 1: macro F1 0.9574  top-1 0.9242  log loss 0.0590  (36.3 s fit)
+    fold 2: macro F1 0.9581  top-1 0.9285  log loss 0.0567  (43.1 s fit)
+    fold 3: macro F1 0.9219  top-1 0.8654  log loss 0.1058  (32.2 s fit)
+    fold 4: macro F1 0.9376  top-1 0.9014  log loss 0.1113  (38.7 s fit)
+  CV macro F1 0.9392 ± 0.0182 | test top-1 0.8943 | test macro F1 0.9395 | log loss 0.0745 | continuity 0.9475
+
+=== xgb (Boosting) ===
+    fold 0: macro F1 0.9232  top-1 0.8641  log loss 0.0942  (15.5 s fit)
+    fold 1: macro F1 0.9585  top-1 0.9255  log loss 0.0474  (14.0 s fit)
+    fold 2: macro F1 0.9634  top-1 0.9353  log loss 0.0447  (14.7 s fit)
+    fold 3: macro F1 0.9291  top-1 0.8778  log loss 0.0852  (13.8 s fit)
+    fold 4: macro F1 0.9445  top-1 0.9067  log loss 0.0753  (14.4 s fit)
+  CV macro F1 0.9437 ± 0.0176 | test top-1 0.9048 | test macro F1 0.9451 | log loss 0.0618 | continuity 0.9573
+
+=== lgbm (Boosting) ===
+    fold 0: macro F1 0.9221  top-1 0.8633  log loss 0.0980  (20.7 s fit)
+    fold 1: macro F1 0.9597  top-1 0.9286  log loss 0.0472  (19.9 s fit)
+    fold 2: macro F1 0.9622  top-1 0.9321  log loss 0.0509  (19.7 s fit)
+    fold 3: macro F1 0.9295  top-1 0.8762  log loss 0.0904  (21.0 s fit)
+    fold 4: macro F1 0.9456  top-1 0.9075  log loss 0.0788  (23.5 s fit)
+  CV macro F1 0.9438 ± 0.0178 | test top-1 0.9028 | test macro F1 0.9445 | log loss 0.0650 | continuity 0.9563
+
+=== xgb_rank (Boosting (learning to rank)) ===
+    fold 0: macro F1 0.9250  top-1 0.8636  log loss 0.0868  (32.7 s fit)
+    fold 1: macro F1 0.9620  top-1 0.9283  log loss 0.0438  (33.6 s fit)
+    fold 2: macro F1 0.9667  top-1 0.9361  log loss 0.0416  (29.6 s fit)
+    fold 3: macro F1 0.9296  top-1 0.8745  log loss 0.0817  (31.0 s fit)
+    fold 4: macro F1 0.9477  top-1 0.9088  log loss 0.0690  (29.4 s fit)
+  CV macro F1 0.9462 ± 0.0187 | test top-1 0.9113 | test macro F1 0.9509 | log loss 0.0564 | continuity 0.9579
+
+=== lgbm_rank (Boosting (learning to rank)) ===
+    fold 0: macro F1 0.9256  top-1 0.8665  log loss 0.0870  (26.2 s fit)
+    fold 1: macro F1 0.9634  top-1 0.9315  log loss 0.0424  (25.5 s fit)
+    fold 2: macro F1 0.9659  top-1 0.9343  log loss 0.0418  (24.1 s fit)
+    fold 3: macro F1 0.9284  top-1 0.8713  log loss 0.0838  (25.2 s fit)
+    fold 4: macro F1 0.9526  top-1 0.9171  log loss 0.0667  (24.4 s fit)
+  CV macro F1 0.9472 ± 0.0191 | test top-1 0.9022 | test macro F1 0.9469 | log loss 0.0569 | continuity 0.9558
+
+=== knn (Instance-based) ===
+    fold 0: macro F1 0.9046  top-1 0.8416  log loss 0.1655  (0.1 s fit)
+    fold 1: macro F1 0.9351  top-1 0.8949  log loss 0.0956  (0.1 s fit)
+    fold 2: macro F1 0.9363  top-1 0.9002  log loss 0.0929  (0.0 s fit)
+    fold 3: macro F1 0.9102  top-1 0.8449  log loss 0.1520  (0.1 s fit)
+    fold 4: macro F1 0.9238  top-1 0.8804  log loss 0.1420  (0.0 s fit)
+  CV macro F1 0.9220 ± 0.0143 | test top-1 0.8666 | test macro F1 0.9197 | log loss 0.1126 | continuity 0.9563
+
+=== mlp (Neural network) ===
+    fold 0: macro F1 0.9197  top-1 0.8570  log loss 0.1065  (518.4 s fit)
+/run/media/amogh-herle/DATA/PESU/ML_LAB/HACKATHON/pathsnap/.venv/lib/python3.14/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (60) reached and the optimization hasn't converged yet.
+  warnings.warn(
+    fold 1: macro F1 0.9551  top-1 0.9190  log loss 0.0543  (340.6 s fit)
+    fold 2: macro F1 0.9595  top-1 0.9309  log loss 0.0498  (250.5 s fit)
+    fold 3: macro F1 0.9190  top-1 0.8569  log loss 0.1110  (529.8 s fit)
+    fold 4: macro F1 0.9413  top-1 0.9043  log loss 0.0866  (533.2 s fit)
+  CV macro F1 0.9389 ± 0.0191 | test top-1 0.8930 | test macro F1 0.9384 | log loss 0.0748 | continuity 0.9538
+
+=== rf (Ensemble (bagging)) ===
+    fold 0: macro F1 0.9242  top-1 0.8645  log loss 0.0942  (164.4 s fit)
+    fold 1: macro F1 0.9589  top-1 0.9252  log loss 0.0478  (161.6 s fit)
+    fold 2: macro F1 0.9640  top-1 0.9337  log loss 0.0463  (139.9 s fit)
+    fold 3: macro F1 0.9310  top-1 0.8767  log loss 0.0847  (117.2 s fit)
+    fold 4: macro F1 0.9430  top-1 0.9019  log loss 0.0760  (116.9 s fit)
+  CV macro F1 0.9442 ± 0.0172 | test top-1 0.9002 | test macro F1 0.9436 | log loss 0.0627 | continuity 0.9537

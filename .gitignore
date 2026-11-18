@@ -28,4 +28,4 @@ data/raw/
 artifacts/models/
 
 # API logs
-logs/
+/logs/

@@ -20,8 +20,8 @@ import pandas as pd
 import shapely
 from shapely import STRtree
 
-from pathsnap.config import (CAND_FALLBACK_RADIUS_M, CAND_K, CAND_RADIUS_M, HEADING_PENALTY_M,
-                             HEADING_WIDE_WINDOW)
+from pathsnap.config import (CAND_FALLBACK_RADIUS_M, CAND_K, CAND_RADIUS_M, CONTEXT_WINDOW,
+                             HEADING_PENALTY_M, HEADING_WIDE_WINDOW)
 from pathsnap.data_processing.clean import gps_heading as _gps_heading
 from pathsnap.data_processing.geometry import angle_diff_deg, point_segment_distance
 
@@ -46,6 +46,17 @@ FEATURE_COLUMNS = [
     "out_deg_v",           # branching at arc end (intersection complexity)
     "in_deg_u",
 ]
+# context features (window of neighbouring observations, ranks within the candidate set)
+CONTEXT_COLUMNS = [
+    "aligned_score_m",     # distance + direction penalty (the "best arc" score)
+    "score_rank",          # 0 = best by that score within the observation
+    "heading_rank",        # 0 = best heading match within the observation
+    "heading_gap_to_best", # heading diff minus the observation's smallest heading diff
+    "arc_support",         # share of +-W neighbouring observations with this arc as a candidate
+    "best_support",        # share of +-W neighbouring observations whose best arc is this arc
+]
+BASE_COLUMNS = list(FEATURE_COLUMNS)
+FEATURE_COLUMNS = BASE_COLUMNS + CONTEXT_COLUMNS
 
 
 def direction_penalty(heading_diff_deg, known):
@@ -171,6 +182,39 @@ def build_candidates(clean: pd.DataFrame, nodes: pd.DataFrame, arcs: pd.DataFram
     c["follows_prev_best"] = ((pb >= 0) & (idx.u[arc] == idx.v[np.maximum(pb, 0)])).astype(int)
     c["same_as_next_best"] = ((nb >= 0) & (arc == nb)).astype(int)
     c["precedes_next_best"] = ((nb >= 0) & (idx.v[arc] == idx.u[np.maximum(nb, 0)])).astype(int)
+
+    # --- ranks within the observation's candidate set ---
+    c["aligned_score_m"] = score
+    g = c.groupby("pt")
+    c["score_rank"] = g["aligned_score_m"].rank(method="min").astype(int) - 1
+    c["heading_rank"] = g["heading_diff_deg"].rank(method="min").astype(int) - 1
+    c["heading_gap_to_best"] = c["heading_diff_deg"] - g["heading_diff_deg"].transform("min")
+
+    # --- context over the +-W neighbouring good observations of the same segment ---
+    # arc_support : share of those neighbours that also have this arc as a candidate
+    # best_support: share of those neighbours whose best arc is this arc
+    W = CONTEXT_WINDOW
+    pos = np.full(len(clean), -1)
+    pos[gp] = np.arange(len(gp))                       # position among good observations
+    gseg = seg[gp]
+    first = pd.Series(np.arange(len(gp))).groupby(gseg).transform("min").to_numpy()
+    last = pd.Series(np.arange(len(gp))).groupby(gseg).transform("max").to_numpy()
+    k = pos[pt]
+    ok = k >= 0
+    kk = np.where(ok, k, 0)
+    lo = np.where(ok, np.maximum(kk - W, first[kk] if len(gp) else 0), 0)
+    hi = np.where(ok, np.minimum(kk + W, last[kk] if len(gp) else 0), 0)
+    n_nb = np.maximum(hi - lo, 1)
+    BIG = np.int64(len(clean) + 1)
+    in_gp = ok
+    cand_keys = np.sort(arc[in_gp].astype(np.int64) * BIG + k[in_gp])
+    key_lo, key_hi = arc.astype(np.int64) * BIG + lo, arc.astype(np.int64) * BIG + hi
+    cnt = np.searchsorted(cand_keys, key_hi, "right") - np.searchsorted(cand_keys, key_lo, "left") - 1
+    best_keys = np.sort(best_arc[gp].astype(np.int64) * BIG + np.arange(len(gp)))
+    bcnt = (np.searchsorted(best_keys, key_hi, "right") - np.searchsorted(best_keys, key_lo, "left")
+            - (best_arc[pt] == arc))
+    c["arc_support"] = np.where(ok, np.clip(cnt, 0, None) / n_nb, 0.0)
+    c["best_support"] = np.where(ok, np.clip(bcnt, 0, None) / n_nb, 0.0)
 
     # carry observation identifiers / flags
     c["obs_idx"] = clean["obs_idx"].to_numpy()[pt]

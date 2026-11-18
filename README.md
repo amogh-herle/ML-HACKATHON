@@ -1,57 +1,52 @@
 # PathSnap — Map-Matching & Route Reconstruction
 
-Matches noisy GPS trajectories to a road network: per-observation candidate
-classification followed by HMM/Viterbi route decoding, served via FastAPI
-(Laptop 1) to an evaluator UI (Laptop 2).
+Matches noisy GPS trajectories to a road network: every GPS observation gets candidate
+road arcs, a classifier scores them, and an HMM/Viterbi decoder turns the scores into a
+connected route. A FastAPI backend (Laptop 1) serves the pipeline to an evaluator UI (Laptop 2).
+
+## Results (student test, 10 trips, 19,133 reliably labelled GPS observations)
+
+| | Top-1 accuracy | Route F1 | Route continuity |
+|---|---|---|---|
+| Tuned XGBoost (classifier only) | 0.9086 | 0.857 | 0.959 |
+| **Tuned XGBoost + HMM (final system)** | **0.9152** | **0.933** | **0.976** |
+
+Final classifier: XGBoost, 24 features, tuned with 50 Optuna trials (CV top-1 0.9019 -> 0.9040).
+All model / feature / decoder choices were made on train cross-validation; student-test data
+was only used to report results; evaluator-test data is never used. Full model comparison:
+`results/models/comparison.csv` and `notebooks/03_model_comparison.ipynb`.
 
 ## Repository layout
 
 ```
 pathsnap/
-  config.py            paths, CRS, seed (override data path with PATHSNAP_DATA)
-  data_processing/     raw-file loading, inventory / data-quality checks, preprocessing
-  features/            candidate generation + feature engineering
-  models/              training / evaluation scripts for every model tried
-  hpo/                 Bayesian hyperparameter optimisation (Optuna)
-  hmm/                 HMM + Viterbi decoder
-  api/                 FastAPI backend (model loading, /predict)
-  viz/                 Folium maps and plots
-ui/                    evaluator-facing UI
-notebooks/             EDA and exploration notebooks
-results/               CSVs, logs, plots, maps (eda/ models/ hpo/ hmm/ maps/)
-artifacts/             exported model, scaler, HMM config
-report/                technical report sources + final PDF
+  config.py            every parameter (paths, CRS, cleaning, labels, candidates, seed)
+  data_processing/     loading, per-trip UTM projection, inventory, cleaning, labels
+  features/            candidate generation (STRtree) + 24 features, ablation inputs
+  models/              shared CV harness, model registry, training, ablation, error analysis, rankers
+  hpo/                 Bayesian hyperparameter optimisation (Optuna TPE)
+  hmm/                 road graph (bounded Dijkstra), HMM + Viterbi, tuning/evaluation
+  pipeline.py          end-to-end inference for one trip (used by the API) + server-side scoring
+  api/                 FastAPI backend
+  viz/                 Folium maps, model and HPO plots
+  reproduce.py         one-command reproduction + checks used by the notebooks
+  colab_bundle.py      zip of code + data for manual upload to Google Colab
+notebooks/             01_eda, 02_preprocessing, 03_model_comparison, 04_hpo, 05_hmm (executed)
+  colab/               Colab GPU notebooks
+results/
+  eda/                 inventory, preprocessing, candidate sweep and summaries (CSV)
+  models/              per-model metrics, CV folds, confusion matrices, comparison, ablation, plots
+  hpo/                 Optuna study (SQLite), trials, importance, tuned vs untuned, plots
+    archive_v1_old_features/   first study, before the label/feature changes (history only)
+  hmm/                 decoder tuning grid, per-trip results, summary
+  maps/                Folium HTML maps
+  logs/                training / ablation / HPO / HMM run logs
+artifacts/             final_model.joblib + .json, hmm_config.json (per-model weights not in git)
+ui/                    evaluator UI (Laptop 2)
+report/                technical report
 ```
 
 ## Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Raw data is **not** committed. Place the extracted `Student folder/`
-(containing `train/` and `student_test/`) next to this repo, or point to it:
-
-```bash
-export PATHSNAP_DATA="/path/to/Student folder"
-```
-
-## Data
-
-| File | Columns (no header, whitespace-separated) |
-|---|---|
-| `.track` | lon, lat, t (seconds) |
-| `.nodes` | lon, lat — row index = node_id |
-| `.arcs`  | from_node, to_node — row index = arc_id |
-| `.route` | arc_id sequence (reference route) |
-
-Road networks are **per trip**; ids are only valid within their own trip.
-Trips are spread worldwide, so each trip is projected to the UTM zone of its
-own GPS centroid (`Trip.crs`) for metric distances.
-
-## Reproducing everything (teammates start here)
 
 ```bash
 git clone https://github.com/amogh-herle/ML-HACKATHON.git pathsnap
@@ -59,144 +54,76 @@ cd pathsnap
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+export PATHSNAP_DATA="/path/to/Student folder"   # folder with train/ student_test/ (evaluator_test/)
+```
 
-# raw data: put the extracted "Student folder" next to the repo, or point to it
-export PATHSNAP_DATA="/path/to/Student folder"
+Raw data and large intermediate files (`data/processed/*.parquet`, `artifacts/models/`) are not
+in git; they are regenerated by the commands below. Preprocessing is deterministic; models use
+`SEED = 42`.
 
+## Reproducing everything
+
+```bash
 python -m pathsnap.reproduce --check        # what is present / missing
-python -m pathsnap.reproduce                # full pipeline + models + notebooks (~40 min)
-python -m pathsnap.reproduce --skip-models  # data, maps and notebooks 01-02 only (~2 min)
+python -m pathsnap.reproduce --skip-models  # data, candidates, maps, notebooks 01-02 (~2 min)
+python -m pathsnap.reproduce                # + the five recommended models + plots + notebooks
 ```
 
-Notebooks (`notebooks/01_eda`, `02_preprocessing`, `03_model_comparison`) are committed
-with their outputs. To rerun them yourself, use the repo's `.venv` as the kernel:
+Step by step:
 
 ```bash
-python -m ipykernel install --user --name pathsnap --display-name "PathSnap (.venv)"
+python -m pathsnap.data_processing.inventory        # inventory + data-quality checks
+python -m pathsnap.data_processing.preprocess       # cleaning + per-observation labels
+python -m pathsnap.features.build --sweep           # candidate radius / k sweep
+python -m pathsnap.features.build                   # candidates + 24 features
+python -m pathsnap.models.ablation                  # feature-set / model-type experiments (train CV)
+python -m pathsnap.models.train logreg knn rf lgbm mlp xgb dtree xgb_rank lgbm_rank
+python -m pathsnap.hpo.xgb_optuna --trials 50       # Bayesian search (resumable)
+python -m pathsnap.hpo.xgb_optuna --refit           # final model + tuned vs untuned
+python -m pathsnap.hmm.run                          # HMM tuning (train) + evaluation (student test)
+python -m pathsnap.models.error_analysis            # where the remaining errors are
+python -m pathsnap.viz.model_plots && python -m pathsnap.viz.hpo_plots
 ```
 
-then pick **PathSnap (.venv)** as the kernel (VS Code: *Select Kernel* > *Jupyter Kernel*).
-Each notebook's first cell finds the repo, checks the raw data, and builds
-`data/processed/` if it is missing; notebook 03 also trains any missing model
-(`TRAIN_IF_MISSING`). Large files (`data/processed/*.parquet`,
-`artifacts/models/*.joblib`) are not in git and are regenerated this way.
-Preprocessing is deterministic; models use `SEED = 42`.
+Notebooks run with the repo's `.venv` as kernel
+(`python -m ipykernel install --user --name pathsnap --display-name "PathSnap (.venv)"`).
+Each first cell finds the repo, checks the data and builds `data/processed/` if missing.
 
-## Running individual steps
+## Method
 
-```bash
-# dataset inventory + data-quality checks -> results/eda/inventory_*.csv
-python -m pathsnap.data_processing.inventory
+**Data.** Each trip: `.track` (lon, lat, t), `.nodes` (lon, lat), `.arcs` (from, to),
+`.route` (reference arc ids). Road networks are per trip; ids are only valid within a trip.
+Trips span 25+ UTM zones, so each is projected to its own zone.
 
-# cleaning + per-observation labels -> data/processed/*_points.parquet,
-#                                       results/eda/preprocess_summary_*.csv
-python -m pathsnap.data_processing.preprocess
-```
+**Preprocessing** (`data_processing/`). Cleaning flags invalid points and GPS jumps
+(> 85 m/s from the last good point; real autobahn speeds reach ~72 m/s) and splits segments at
+gaps > 30 s; nothing is dropped. Labels: each GPS point is aligned to one arc of the reference
+route by a monotonic dynamic programme whose cost is distance + a direction penalty, so loops
+and out-and-back drives get the right copy of a street. Labels > 50 m away are unreliable.
 
-## Preprocessing
+**Candidates and features** (`features/`). The 12 nearest arcs within 50 m (0.57 % miss rate on
+train). 24 features: distance and its ranks, heading differences (1-step and wide window),
+signed movement along the arc, arc length, projection position, speed, time gap, links to the
+neighbouring observations' best arcs, node degrees, ranks within the candidate set, and support
+from the +-5 neighbouring observations. `results/models/ablation.csv` shows each group's effect.
 
-1. **Projection** - per-trip UTM zone (`loader.utm_crs_for`).
-2. **Cleaning** (`clean.py`, route-free, reused by the API): flags invalid
-   coordinates / non-increasing timestamps, GPS jumps (implied speed > 85 m/s
-   from last good point), and splits segments at gaps > 30 s. Nothing is
-   dropped; every observation keeps its `obs_idx`.
-3. **Labels** (`labels.py`, training/evaluation only): each GPS point is
-   aligned to one arc of the reference route with a monotonic DP so the route
-   order is respected even when streets are revisited. Points > 50 m from their
-   label arc get `label_reliable = False`; trips whose median distance > 30 m
-   are flagged `suspect_reference`.
+**Models** (`models/`). One harness for all: 5-fold `GroupKFold` by trip on train, refit, then
+student test. Metrics: Top-1 accuracy per observation, macro F1, precision, recall, accuracy,
+log loss, route continuity, fit and inference time. Nine models from six families, including
+two learning-to-rank models (`models/ranker.py`).
 
-Parameters live in `pathsnap/config.py`.
+**HPO** (`hpo/`). Optuna TPE (seed 42), median pruner, objective = CV Top-1, trial 0 = untuned.
 
-## Maps
-
-```bash
-python -m pathsnap.viz.maps                                  # default showcase trips
-python -m pathsnap.viz.maps train 00000001 student_test 00000000
-```
-
-Writes `results/maps/<partition>_<trip_id>.html`: GPS observations (with
-tooltips), flagged outliers, nearby road network, reference route, start/end
-markers, legend and layer control. `viz.maps.trip_map(trip, predicted_arcs=...)`
-adds a predicted-route layer.
-
-## Candidates and features
-
-```bash
-python -m pathsnap.features.build --sweep   # miss rate vs radius/k -> results/eda/candidate_sweep.csv
-python -m pathsnap.features.build           # -> data/processed/<partition>_candidates.parquet
-```
-
-`features/candidates.py::build_candidates` (route-free, reused by the API)
-takes the k = 12 nearest arcs within 50 m of each valid GPS point (fallback
-search to 200 m if none). Settings were chosen from the train sweep: candidate
-miss rate 0.56 % on train, 0.07 % on student_test, ~7 candidates per point.
-
-One row per (observation, candidate arc); feature list in `FEATURE_COLUMNS`:
-distance, distance rank / gap to best, candidate-set size, heading difference
-(separates the two directions of a two-way street), arc length, projection
-position, speed, time gap, connectivity to the previous / next observation's
-nearest arc, and node degrees. Training rows: `label_reliable`; target: `label`.
-
-```python
-from pathsnap.data_processing.loader import load_trip, list_trips
-trip = load_trip(list_trips("train")[0], "train")
-trip.track.head(); trip.nodes.head(); trip.arcs.head(); trip.route[:10]
-```
-
-_Training, HPO, HMM, API and UI commands: TODO as components are added._
-
-## Models
-
-```bash
-python -m pathsnap.models.train --list        # every registered model (* = recommended five)
-python -m pathsnap.models.train               # train + evaluate the recommended five
-python -m pathsnap.models.train xgb hgb       # any others
-python -m pathsnap.viz.model_plots            # comparison plots -> results/models/plots/
-```
-
-All models share one harness (`pathsnap/models/evaluate.py`): reliable rows of
-the candidate tables, `FEATURE_COLUMNS` -> `label`, 5-fold `GroupKFold` by
-`trip_id` on the 80 train trips, then a refit on all train and evaluation on the
-10 student-test trips. Metrics: macro F1, precision, recall, log loss (rows,
-threshold 0.5), observation-level Top-1 accuracy, route continuity, training and
-inference time. Results: `results/models/comparison.csv` and
-`results/models/<model>/`. Add a model = one entry in `models/registry.py`.
-
-## Bayesian hyperparameter optimisation (XGBoost)
-
-```bash
-python -m pathsnap.hpo.xgb_optuna --trials 50   # Optuna TPE search (resumable), ~40 min
-python -m pathsnap.hpo.xgb_optuna --refit       # refit best, tuned vs untuned, final model
-python -m pathsnap.viz.hpo_plots                # history, importance, slices, comparison
-```
-
-Objective: mean 5-fold `GroupKFold` Top-1 accuracy on the train trips (same folds as
-the model comparison). TPE sampler (seed 42) with a median pruner; trial 0 is the
-untuned configuration. The full search record is `results/hpo/xgb_study.db`
-(SQLite) and `results/hpo/xgb_trials.csv`. The tuned model becomes
-`artifacts/final_model.joblib` (+ `final_model.json`). See `notebooks/04_hpo.ipynb`.
-
-## HMM / Viterbi route reconstruction
-
-```bash
-python -m pathsnap.hmm.run     # tune beta / emission weight on train (out-of-fold), evaluate on student test
-```
-
-States = candidate arcs per GPS observation; emission = normalised classifier
-probability; transition = `-|route distance - GPS distance| / beta` with route
-distances from a bounded Dijkstra on the trip's network (Newson & Krumm);
-no-path pairs get a capped penalty; chains restart at gaps > 30 s; Viterbi in
-log space. Config in `artifacts/hmm_config.json`, results in `results/hmm/`,
-analysis in `notebooks/05_hmm.ipynb`. `pathsnap/pipeline.py` (`Matcher`) runs
-the whole inference for one trip (what the API calls); `score_trip` scores it
-against the reference server-side.
+**HMM** (`hmm/`). States = candidate arcs; emission = classifier probability normalised per
+observation; transition = `-|route distance - GPS distance| / beta` with route distances from a
+bounded Dijkstra; no-path pairs get a capped penalty (never zero); chains restart at gaps; log-
+space Viterbi; gaps between decoded arcs are filled with shortest paths. beta and the emission
+weight are tuned on train out-of-fold probabilities (`artifacts/hmm_config.json`).
 
 ## API (Laptop 1)
 
 ```bash
-python -m pathsnap.api                         # 0.0.0.0:8000, prints the LAN address for the UI
-PATHSNAP_PARTITION=evaluator_test python -m pathsnap.api   # serve another partition folder
+python -m pathsnap.api            # 0.0.0.0:8000, prints the LAN address to give the UI
 ```
 
 | Endpoint | Returns |
@@ -204,38 +131,22 @@ PATHSNAP_PARTITION=evaluator_test python -m pathsnap.api   # serve another parti
 | `GET /health` | status, served partition, number of trips, HMM settings |
 | `GET /trips` | trip ids of the served partition |
 | `GET /trips/{trip_id}/gps` | raw GPS observations `[lon, lat]` |
-| `POST /predict` `{"trip_id": "..."}` | per-observation predicted arc, predicted route geometry (GeoJSON MultiLineString), accuracy metrics, timings |
+| `POST /predict` `{"trip_id": "..."}` | predicted arc per observation, predicted route (GeoJSON), accuracy, timings |
 
-`/predict` runs `pathsnap.pipeline.Matcher` (cleaning, candidates, classifier, HMM)
-without the reference route, then scores the result server-side (`score_trip`).
-The reference route is never included in a response. Every request is logged to
-the terminal and `logs/api.log` (client, trip, points, accuracy, timings).
-Served partition: `PATHSNAP_PARTITION`, default `evaluator_test` if that folder
-exists under `PATHSNAP_DATA`, else `student_test`. Interactive docs: `/docs`.
-On the two-laptop network, allow incoming TCP 8000 in the firewall of Laptop 1.
+`/predict` runs `pipeline.Matcher` without the reference route, then scores the result
+server-side; the reference route is never in a response. Requests are logged to the terminal
+and `logs/api.log`. Served partition: `PATHSNAP_PARTITION`, default `evaluator_test` if that
+folder exists, else `student_test`. Allow incoming TCP 8000 in Laptop 1's firewall.
 
-## Google Colab (GPU)
+## Google Colab (optional)
 
-No GitHub access is needed on Colab; everything is uploaded by hand.
-
-```bash
-python -m pathsnap.colab_bundle     # -> ../colab/pathsnap_colab.zip (code + raw data, ~30 MB)
-```
-
-In Colab: *File › Upload notebook* → `notebooks/colab_gpu.ipynb`, *Runtime › Change
-runtime type › T4 GPU*, upload `pathsnap_colab.zip` in the Files panel (or let the
-notebook's upload dialog ask for it), then run all cells. The notebook installs
-the packages (full `xgboost` wheel with CUDA), preprocesses, runs a GPU-vs-CPU
-speed check, the XGBoost Optuna search on the GPU (`PATHSNAP_XGB_DEVICE=cuda`,
-own study `xgb_top1_gpu`), refits, and downloads an outputs zip to unzip inside
-the repo.
-
-Environment settings: `PATHSNAP_DATA` (data path), `PATHSNAP_JOBS` (threads),
-`PATHSNAP_XGB_DEVICE` (`cpu`/`cuda`), `PATHSNAP_STUDY` (Optuna study name).
+`python -m pathsnap.colab_bundle` (or `--fresh`) builds a zip of code + data in `../colab/`;
+upload it with `notebooks/colab/colab_gpu.ipynb` (GPU HPO) or `colab_rerun.ipynb` (full rerun).
+Settings: `PATHSNAP_DATA`, `PATHSNAP_JOBS`, `PATHSNAP_XGB_DEVICE`, `PATHSNAP_STUDY`,
+`PATHSNAP_HPO_MODEL`.
 
 ## Leakage rules
 
-- Evaluator-test trips are never used for training, tuning or selection.
-- Reference routes stay server-side; inference code loads trips with
-  `load_trip(..., with_route=False)`.
+- Evaluator-test trips are never used for training, tuning, feature or model selection.
+- Reference routes stay server-side; inference loads trips with `load_trip(..., with_route=False)`.
 - No hardcoded predictions.

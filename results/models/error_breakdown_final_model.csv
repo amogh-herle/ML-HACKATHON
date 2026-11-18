@@ -1,7 +1,7 @@
 category,points,share_pct,gps_heading_agrees_with_prediction_pct
-correct,16425,85.846,
-reverse twin,1353,7.072,83.075
-next/previous arc,401,2.096,
-sibling at same junction,488,2.551,
-other road,452,2.362,
-label not a candidate,14,0.073,
+correct,17384,90.859,
+reverse twin,737,3.852,55.902
+next/previous arc,367,1.918,
+sibling at same junction,333,1.74,
+other road,297,1.552,
+label not a candidate,15,0.078,

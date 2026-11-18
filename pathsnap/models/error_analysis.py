@@ -31,6 +31,7 @@ from pathsnap.config import ARTIFACTS_DIR, RESULTS_DIR
 from pathsnap.data_processing.loader import load_arcs, trip_dir
 from pathsnap.features.candidates import FEATURE_COLUMNS
 from pathsnap.models.evaluate import KEY, load_candidates
+from pathsnap.models.ranker import predict_p
 
 ORDER = ["correct", "reverse twin", "next/previous arc", "sibling at same junction", "other road",
          "label not a candidate"]
@@ -38,7 +39,7 @@ ORDER = ["correct", "reverse twin", "next/previous arc", "sibling at same juncti
 
 def breakdown(model_path, name: str, partition: str = "student_test") -> pd.DataFrame:
     df = load_candidates(partition)
-    df["p"] = joblib.load(model_path).predict_proba(df[FEATURE_COLUMNS].to_numpy())[:, 1]
+    df["p"] = predict_p(joblib.load(model_path), df)
     top = df.sort_values(KEY + ["p"], ascending=[True, True, False]).groupby(KEY).head(1)
     true = df[df["label"] == 1].set_index(KEY)[["heading_diff_deg"]].rename(
         columns={"heading_diff_deg": "true_heading_diff"})

@@ -1,0 +1,15 @@
+base (18)              xgb        CV top-1 0.8847 ± 0.0288 | macro F1 0.9326 | log loss 0.0818 | 7 s/fold
+base + ranks (22)      xgb        CV top-1 0.8937 ± 0.0319 | macro F1 0.9394 | log loss 0.0749 | 8 s/fold
+base + support (20)    xgb        CV top-1 0.8926 ± 0.0269 | macro F1 0.9381 | log loss 0.0759 | 8 s/fold
+base + context (24)    xgb        CV top-1 0.9019 ± 0.0305 | macro F1 0.9437 | log loss 0.0694 | 8 s/fold
+base + context (24)    lgbm       CV top-1 0.9014 ± 0.0310 | macro F1 0.9438 | log loss 0.0733 | 11 s/fold
+base + context (24)    xgb_rank   CV top-1 0.9023 ± 0.0321 | macro F1 0.9462 | log loss 0.0646 | 21 s/fold
+base + context (24)    lgbm_rank  CV top-1 0.9041 ± 0.0329 | macro F1 0.9472 | log loss 0.0643 | 13 s/fold
+           features     model  cv_top1  cv_top1_std  cv_macro_f1  cv_log_loss  fit_seconds_per_fold
+          base (18)       xgb   0.8847       0.0288       0.9326       0.0818                6.5588
+  base + ranks (22)       xgb   0.8937       0.0319       0.9394       0.0749                7.9776
+base + support (20)       xgb   0.8926       0.0269       0.9381       0.0759                7.7115
+base + context (24)       xgb   0.9019       0.0305       0.9437       0.0694                8.3925
+base + context (24)      lgbm   0.9014       0.0310       0.9438       0.0733               11.2558
+base + context (24)  xgb_rank   0.9023       0.0321       0.9462       0.0646               21.2686
+base + context (24) lgbm_rank   0.9041       0.0329       0.9472       0.0643               12.8217
