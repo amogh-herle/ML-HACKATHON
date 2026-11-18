@@ -115,6 +115,23 @@ trip.track.head(); trip.nodes.head(); trip.arcs.head(); trip.route[:10]
 
 _Training, HPO, HMM, API and UI commands: TODO as components are added._
 
+## Models
+
+```bash
+python -m pathsnap.models.train --list        # every registered model (* = recommended five)
+python -m pathsnap.models.train               # train + evaluate the recommended five
+python -m pathsnap.models.train xgb hgb       # any others
+python -m pathsnap.viz.model_plots            # comparison plots -> results/models/plots/
+```
+
+All models share one harness (`pathsnap/models/evaluate.py`): reliable rows of
+the candidate tables, `FEATURE_COLUMNS` -> `label`, 5-fold `GroupKFold` by
+`trip_id` on the 80 train trips, then a refit on all train and evaluation on the
+10 student-test trips. Metrics: macro F1, precision, recall, log loss (rows,
+threshold 0.5), observation-level Top-1 accuracy, route continuity, training and
+inference time. Results: `results/models/comparison.csv` and
+`results/models/<model>/`. Add a model = one entry in `models/registry.py`.
+
 ## Leakage rules
 
 - Evaluator-test trips are never used for training, tuning or selection.

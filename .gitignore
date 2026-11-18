@@ -23,3 +23,6 @@ data/raw/
 
 # local tooling
 .claude/
+
+# per-model weights (final chosen model is copied to artifacts/ and committed)
+artifacts/models/
