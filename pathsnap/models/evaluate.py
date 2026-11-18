@@ -33,7 +33,6 @@ from sklearn.model_selection import GroupKFold
 
 from pathsnap.config import ARTIFACTS_DIR, PROCESSED_DIR, RESULTS_DIR, SEED
 from pathsnap.data_processing.loader import load_arcs, trip_dir
-from pathsnap.features.candidates import FEATURE_COLUMNS
 
 N_FOLDS = 5
 KEY = ["trip_id", "pt"]

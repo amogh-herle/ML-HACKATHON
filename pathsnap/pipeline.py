@@ -14,14 +14,13 @@ import time
 from dataclasses import dataclass
 
 import joblib
-import numpy as np
 import pandas as pd
 
 from pathsnap.config import ARTIFACTS_DIR, DATA_ROOT
 from pathsnap.data_processing.clean import clean_track
 from pathsnap.data_processing.labels import label_track
 from pathsnap.data_processing.loader import load_route, load_trip
-from pathsnap.features.candidates import FEATURE_COLUMNS, build_candidates
+from pathsnap.features.candidates import build_candidates
 from pathsnap.hmm.graph import RoadGraph
 from pathsnap.hmm.viterbi import HMMParams, assign_all, build_lattice, decode, reconstruct_route
 from pathsnap.models.ranker import predict_p

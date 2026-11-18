@@ -29,7 +29,6 @@ import pandas as pd
 
 from pathsnap.config import ARTIFACTS_DIR, RESULTS_DIR
 from pathsnap.data_processing.loader import load_arcs, trip_dir
-from pathsnap.features.candidates import FEATURE_COLUMNS
 from pathsnap.models.evaluate import KEY, load_candidates
 from pathsnap.models.ranker import predict_p
 

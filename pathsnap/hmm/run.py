@@ -29,7 +29,6 @@ from sklearn.model_selection import GroupKFold
 from pathsnap.config import ARTIFACTS_DIR, PROCESSED_DIR, RESULTS_DIR
 from pathsnap.data_processing.clean import clean_track
 from pathsnap.data_processing.loader import list_trips, load_route, load_trip
-from pathsnap.features.candidates import FEATURE_COLUMNS
 from pathsnap.hmm.graph import RoadGraph
 from pathsnap.hmm.viterbi import HMMParams, assign_all, build_lattice, decode, reconstruct_route
 from pathsnap.models.evaluate import N_FOLDS

@@ -9,10 +9,8 @@ from __future__ import annotations
 import os
 
 from lightgbm import LGBMClassifier, LGBMRanker
-from sklearn.ensemble import (AdaBoostClassifier, HistGradientBoostingClassifier,
-                              RandomForestClassifier)
-from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
@@ -53,7 +51,7 @@ REGISTRY: dict[str, ModelSpec] = {s.name: s for s in [
               "StandardScaler + MLP(64-32, ReLU, Adam, early stopping)",
               notes=["early_stopping holds out a random 10% of training rows (not grouped by "
                      "trip) to decide when to stop."]),
-    # ---------------- alternatives ----------------
+    # ---------------- further models compared ----------------
     ModelSpec("xgb", "Boosting",
               XGBClassifier(n_estimators=400, learning_rate=0.05, max_depth=6, tree_method="hist",
                             device=os.environ.get("PATHSNAP_XGB_DEVICE", "cpu"),
@@ -73,19 +71,9 @@ REGISTRY: dict[str, ModelSpec] = {s.name: s for s in [
               "LGBMRanker(lambdarank, 400 trees, lr=0.05, num_leaves=63); softmax per observation",
               notes=["Trained on each GPS observation's candidates as one group; scores turned "
                      "into probabilities with a softmax inside the group."]),
-    ModelSpec("hgb", "Boosting",
-              HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=SEED),
-              "HistGradientBoosting(300 iters, lr=0.05)"),
     ModelSpec("dtree", "Tree-based",
               DecisionTreeClassifier(max_depth=12, min_samples_leaf=20, random_state=SEED),
               "DecisionTree(max_depth=12, min_samples_leaf=20)"),
-    ModelSpec("adaboost", "Boosting",
-              AdaBoostClassifier(n_estimators=200, random_state=SEED),
-              "AdaBoost(200 stumps)"),
-    ModelSpec("gnb", "Linear / probabilistic", GaussianNB(), "GaussianNB"),
-    ModelSpec("sgd", "Linear (SVM-style)",
-              make_pipeline(StandardScaler(), SGDClassifier(loss="modified_huber", random_state=SEED)),
-              "StandardScaler + linear SVM via SGD (modified Huber loss, gives probabilities)"),
 ]}
 
 RECOMMENDED = ["logreg", "knn", "rf", "lgbm", "mlp"]
