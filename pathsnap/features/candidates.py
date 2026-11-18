@@ -20,8 +20,9 @@ import pandas as pd
 import shapely
 from shapely import STRtree
 
-from pathsnap.config import (CAND_FALLBACK_RADIUS_M, CAND_K, CAND_RADIUS_M,
-                             HEADING_MIN_MOVE_M)
+from pathsnap.config import (CAND_FALLBACK_RADIUS_M, CAND_K, CAND_RADIUS_M, HEADING_PENALTY_M,
+                             HEADING_WIDE_WINDOW)
+from pathsnap.data_processing.clean import gps_heading as _gps_heading
 from pathsnap.data_processing.geometry import angle_diff_deg, point_segment_distance
 
 FEATURE_COLUMNS = [
@@ -31,17 +32,25 @@ FEATURE_COLUMNS = [
     "n_cand",              # size of this point's candidate set
     "heading_diff_deg",    # |GPS heading - arc direction|, 0..180 (90 if unknown)
     "heading_known",       # 1 if GPS moved enough to estimate heading
+    "heading_diff_wide_deg",  # same over a wider window (3rd good point before/after): steadier
+    "along_track_m",       # wide-window displacement projected on the arc direction (signed):
+                           #   > 0 travelling u->v, < 0 against it; separates two-way twins
     "arc_len_m",
     "proj_frac",           # where on the arc the point projects, 0..1
     "speed_ms",
     "dt_prev",
-    "same_as_prev_best",   # arc == previous point's nearest arc
-    "follows_prev_best",   # arc starts where previous point's nearest arc ends
+    "same_as_prev_best",   # arc == previous point's best arc (distance + direction penalty)
+    "follows_prev_best",   # arc starts where previous point's best arc ends
     "same_as_next_best",
-    "precedes_next_best",  # arc ends where next point's nearest arc starts
+    "precedes_next_best",  # arc ends where next point's best arc starts
     "out_deg_v",           # branching at arc end (intersection complexity)
     "in_deg_u",
 ]
+
+
+def direction_penalty(heading_diff_deg, known):
+    """Metres added for pointing against travel: HEADING_PENALTY_M * (1 - cos) / 2, 0 if unknown."""
+    return np.where(known, HEADING_PENALTY_M * (1 - np.cos(np.radians(heading_diff_deg))) / 2, 0.0)
 
 
 @dataclass
@@ -78,22 +87,7 @@ def build_arc_index(nodes: pd.DataFrame, arcs: pd.DataFrame) -> ArcIndex:
 def gps_heading(clean: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """Heading (radians) per observation from the central difference of the
     neighbouring good points in the same segment. Unknown when stationary."""
-    n = len(clean)
-    heading = np.zeros(n)
-    known = np.zeros(n, dtype=bool)
-    good = ~(clean["is_invalid"] | clean["is_outlier"]).to_numpy()
-    x, y, seg = clean["x"].to_numpy(), clean["y"].to_numpy(), clean["segment_id"].to_numpy()
-    gi = np.flatnonzero(good)
-    if len(gi) < 2:
-        return heading, known
-    prev_i = np.r_[gi[0], gi[:-1]]
-    next_i = np.r_[gi[1:], gi[-1]]
-    # don't look across segment breaks
-    prev_i = np.where(seg[prev_i] == seg[gi], prev_i, gi)
-    next_i = np.where(seg[next_i] == seg[gi], next_i, gi)
-    dx, dy = x[next_i] - x[prev_i], y[next_i] - y[prev_i]
-    heading[gi] = np.arctan2(dy, dx)
-    known[gi] = np.hypot(dx, dy) >= HEADING_MIN_MOVE_M
+    heading, known, _, _ = _gps_heading(clean, window=1)
     return heading, known
 
 
@@ -138,18 +132,28 @@ def build_candidates(clean: pd.DataFrame, nodes: pd.DataFrame, arcs: pd.DataFram
     c["fallback"] = fb[np.searchsorted(valid, c["pt"].to_numpy())]
 
     heading, known = gps_heading(clean)
+    w_head, w_known, w_dx, w_dy = _gps_heading(clean, window=HEADING_WIDE_WINDOW)
     arc = c["arc_id"].to_numpy()
     pt = c["pt"].to_numpy()
     c["heading_known"] = known[pt].astype(int)
     c["heading_diff_deg"] = np.where(known[pt], angle_diff_deg(heading[pt], idx.heading[arc]), 90.0)
-    c["arc_len_m"] = idx.length[arc]
+    c["heading_diff_wide_deg"] = np.where(w_known[pt], angle_diff_deg(w_head[pt], idx.heading[arc]), 90.0)
+    length = idx.length[arc]
+    ux = np.where(length > 0, (idx.bx[arc] - idx.ax[arc]) / np.where(length > 0, length, 1), 0.0)
+    uy = np.where(length > 0, (idx.by[arc] - idx.ay[arc]) / np.where(length > 0, length, 1), 0.0)
+    c["along_track_m"] = np.where(w_known[pt], w_dx[pt] * ux + w_dy[pt] * uy, 0.0)
+    c["arc_len_m"] = length
     c["speed_ms"] = np.nan_to_num(clean["speed_ms"].to_numpy()[pt], nan=0.0, posinf=0.0)
     c["dt_prev"] = np.nan_to_num(clean["dt_prev"].to_numpy()[pt], nan=0.0)
     c["out_deg_v"] = idx.out_deg[idx.v[arc]]
     c["in_deg_u"] = idx.in_deg[idx.u[arc]]
 
-    # --- link to neighbouring good observations' nearest arc (same segment) ---
-    best = c[c["order"] == 0].set_index("pt")["arc_id"]
+    # --- link to neighbouring good observations' best arc (same segment) ---
+    # "best" = lowest distance + direction penalty, so of a two-way street's twins the one
+    # pointing along the travel direction is chosen (not whichever has the lower arc id)
+    score = c["dist_m"].to_numpy() + direction_penalty(c["heading_diff_deg"].to_numpy(), known[pt])
+    best = (c.assign(_s=score).sort_values(["pt", "_s", "arc_id"], kind="stable")
+            .groupby("pt").head(1).set_index("pt")["arc_id"])
     good = ~(clean["is_invalid"] | clean["is_outlier"]).to_numpy()
     seg = clean["segment_id"].to_numpy()
     gp = np.array([p for p in best.index if good[p]])

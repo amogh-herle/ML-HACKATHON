@@ -34,5 +34,14 @@ CAND_RADIUS_M = 50.0           # search radius around each GPS point
 CAND_K = 12                    # keep at most k nearest arcs per point
 CAND_FALLBACK_RADIUS_M = 200.0 # if nothing within radius, search this far
 HEADING_MIN_MOVE_M = 2.0       # below this displacement GPS heading is unknown
+HEADING_WIDE_WINDOW = 3        # wide heading: from the 3rd good point before to the 3rd after
+
+# Direction penalty (metres) for an arc pointing against the GPS travel direction, scaled by
+# (1 - cos(angle)) / 2: 0 when aligned, full when opposite. Used (a) in label alignment, so a
+# street the route drives both ways gets the copy matching the travel direction, and (b) to pick
+# each point's "best" arc for the neighbour features. 20 m exceeds typical GPS error (5-15 m),
+# so a wrong-direction copy at the same position loses, but a correct-direction arc up to
+# ~20 m farther still wins. Fixed by reasoning, not tuned on any test data.
+HEADING_PENALTY_M = 20.0
 
 SEED = 42

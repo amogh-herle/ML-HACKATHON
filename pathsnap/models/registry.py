@@ -55,6 +55,7 @@ REGISTRY: dict[str, ModelSpec] = {s.name: s for s in [
     # ---------------- alternatives ----------------
     ModelSpec("xgb", "Boosting",
               XGBClassifier(n_estimators=400, learning_rate=0.05, max_depth=6, tree_method="hist",
+                            device=os.environ.get("PATHSNAP_XGB_DEVICE", "cpu"),
                             n_jobs=JOBS, random_state=SEED, eval_metric="logloss"),
               "XGBoost(400 trees, lr=0.05, max_depth=6, hist)"),
     ModelSpec("hgb", "Boosting",

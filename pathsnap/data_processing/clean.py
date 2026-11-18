@@ -15,7 +15,34 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from pathsnap.config import GAP_BREAK_S, MAX_OUTLIER_RUN, MAX_SPEED_MS
+from pathsnap.config import GAP_BREAK_S, HEADING_MIN_MOVE_M, MAX_OUTLIER_RUN, MAX_SPEED_MS
+
+
+def gps_heading(clean: pd.DataFrame, window: int = 1) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Travel direction per observation from the displacement between the `window`-th good
+    point before and the `window`-th good point after it (central difference), never across a
+    segment break. Returns (heading radians, known, dx, dy); heading is unknown when the
+    displacement is shorter than HEADING_MIN_MOVE_M (vehicle stopped)."""
+    n = len(clean)
+    heading = np.zeros(n)
+    known = np.zeros(n, dtype=bool)
+    dx_all, dy_all = np.zeros(n), np.zeros(n)
+    good = ~(clean["is_invalid"] | clean["is_outlier"]).to_numpy()
+    x, y, seg = clean["x"].to_numpy(), clean["y"].to_numpy(), clean["segment_id"].to_numpy()
+    gi = np.flatnonzero(good)
+    if len(gi) < 2:
+        return heading, known, dx_all, dy_all
+    k = np.arange(len(gi))
+    s = seg[gi]
+    first = pd.Series(k).groupby(s).transform("min").to_numpy()   # first position of the segment
+    last = pd.Series(k).groupby(s).transform("max").to_numpy()
+    prev_i = gi[np.maximum(k - window, first)]
+    next_i = gi[np.minimum(k + window, last)]
+    dx, dy = x[next_i] - x[prev_i], y[next_i] - y[prev_i]
+    heading[gi] = np.arctan2(dy, dx)
+    known[gi] = np.hypot(dx, dy) >= HEADING_MIN_MOVE_M
+    dx_all[gi], dy_all[gi] = dx, dy
+    return heading, known, dx_all, dy_all
 
 
 def flag_outliers(x: np.ndarray, y: np.ndarray, t: np.ndarray,

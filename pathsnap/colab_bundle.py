@@ -20,6 +20,10 @@ from pathlib import Path
 from pathsnap.config import DATA_ROOT, PARTITIONS, REPO_ROOT
 
 CODE_ITEMS = ["pathsnap", "requirements.txt", "README.md", "results/models", "results/hpo"]
+# --fresh: code + notebooks only; every result is recomputed on Colab
+FRESH_ITEMS = ["pathsnap", "requirements.txt", "README.md", "notebooks/01_eda.ipynb",
+               "notebooks/02_preprocessing.ipynb", "notebooks/03_model_comparison.ipynb",
+               "notebooks/04_hpo.ipynb"]
 SKIP_PARTS = {"__pycache__", ".ipynb_checkpoints"}
 
 
@@ -33,11 +37,11 @@ def _files(base: Path, item: str):
                 yield f
 
 
-def build(out: Path) -> Path:
+def build(out: Path, fresh: bool = False) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     n_code = n_data = 0
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for item in CODE_ITEMS:
+        for item in (FRESH_ITEMS if fresh else CODE_ITEMS):
             for f in _files(REPO_ROOT, item):
                 z.write(f, Path("pathsnap") / f.relative_to(REPO_ROOT))
                 n_code += 1
@@ -51,5 +55,8 @@ def build(out: Path) -> Path:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, default=REPO_ROOT.parent / "colab" / "pathsnap_colab.zip")
-    build(ap.parse_args().out)
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--fresh", action="store_true", help="code + notebooks only, no old results")
+    a = ap.parse_args()
+    default = "pathsnap_rerun.zip" if a.fresh else "pathsnap_colab.zip"
+    build(a.out or REPO_ROOT.parent / "colab" / default, fresh=a.fresh)
