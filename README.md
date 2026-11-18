@@ -138,6 +138,28 @@ server-side; the reference route is never in a response. Requests are logged to 
 and `logs/api.log`. Served partition: `PATHSNAP_PARTITION`, default `evaluator_test` if that
 folder exists, else `student_test`. Allow incoming TCP 8000 in Laptop 1's firewall.
 
+## UI (Laptop 2)
+
+`ui/index.html` is a single static page (Leaflet map); Laptop 2 needs only a browser and
+internet for the map tiles, no Python. Either open the file directly, or serve it:
+
+```bash
+python3 -m http.server 5500 --directory ui      # then open http://localhost:5500
+```
+
+Enter the address printed by the API on Laptop 1 (e.g. `http://192.168.1.20:8000`) and press
+Connect (or open `index.html?api=192.168.1.20:8000`; the last address is remembered). The page
+lists the served trips; selecting one draws its GPS track, *Run prediction* sends the trip id to
+`/predict` and shows the predicted route (orange) with the GPS observations, Top-1 accuracy
+(classifier + HMM and classifier only), route precision / recall / F1, number of scored points,
+route arcs / breaks and the server-side timing breakdown. A request log shows every call.
+The reference route is never sent to the UI.
+
+**Demo checklist:** both laptops on the same network (a phone hotspot avoids blocked
+device-to-device traffic on campus Wi-Fi) · Laptop 1: allow incoming TCP 8000, run
+`python -m pathsnap.api` and keep its terminal visible (request logs) · Laptop 2: open the UI,
+enter Laptop 1's address, Connect.
+
 ## Google Colab (optional)
 
 `python -m pathsnap.colab_bundle` (or `--fresh`) builds a zip of code + data in `../colab/`;
