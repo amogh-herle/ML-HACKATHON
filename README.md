@@ -4,6 +4,12 @@ Matches noisy GPS trajectories to a road network: every GPS observation gets can
 road arcs, a classifier scores them, and an HMM/Viterbi decoder turns the scores into a
 connected route. A FastAPI backend (Laptop 1) serves the pipeline to an evaluator UI (Laptop 2).
 
+##Team
+Team member 1: Amogh Herle
+Team member 2: Anjana Vijaysankar
+Team member 3: Sinchana Urs
+Team member 4: Siri S S
+
 ## Results (student test, 10 trips, 19,133 reliably labelled GPS observations)
 
 | | Top-1 accuracy | Route F1 | Route continuity |
