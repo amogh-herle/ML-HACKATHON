@@ -163,6 +163,33 @@ threshold 0.5), observation-level Top-1 accuracy, route continuity, training and
 inference time. Results: `results/models/comparison.csv` and
 `results/models/<model>/`. Add a model = one entry in `models/registry.py`.
 
+## Bayesian hyperparameter optimisation (XGBoost)
+
+```bash
+python -m pathsnap.hpo.xgb_optuna --trials 50   # Optuna TPE search (resumable), ~40 min
+python -m pathsnap.hpo.xgb_optuna --refit       # refit best, tuned vs untuned, final model
+python -m pathsnap.viz.hpo_plots                # history, importance, slices, comparison
+```
+
+Objective: mean 5-fold `GroupKFold` Top-1 accuracy on the train trips (same folds as
+the model comparison). TPE sampler (seed 42) with a median pruner; trial 0 is the
+untuned configuration. The full search record is `results/hpo/xgb_study.db`
+(SQLite) and `results/hpo/xgb_trials.csv`. The tuned model becomes
+`artifacts/final_model.joblib` (+ `final_model.json`). See `notebooks/04_hpo.ipynb`.
+
+## Google Colab (GPU)
+
+`notebooks/colab_gpu.ipynb` runs the pipeline on a Colab T4 GPU: clone (read-only
+token from Colab *Secrets* as `GITHUB_TOKEN`), install, unzip the data from
+Google Drive, preprocess, a GPU-vs-CPU speed check, the XGBoost Optuna search on
+the GPU (`PATHSNAP_XGB_DEVICE=cuda`, own study `xgb_top1_gpu`), refit, and copy
+outputs back to Drive. Open it via
+[Colab › GitHub](https://colab.research.google.com/github/amogh-herle/ML-HACKATHON/blob/main/notebooks/colab_gpu.ipynb)
+(authorise GitHub access for the private repo) or *File › Upload notebook*.
+
+Environment settings: `PATHSNAP_DATA` (data path), `PATHSNAP_JOBS` (threads),
+`PATHSNAP_XGB_DEVICE` (`cpu`/`cuda`), `PATHSNAP_STUDY` (Optuna study name).
+
 ## Leakage rules
 
 - Evaluator-test trips are never used for training, tuning or selection.

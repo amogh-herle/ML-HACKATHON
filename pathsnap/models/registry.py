@@ -6,6 +6,8 @@ inside a Pipeline, so the scaler is fitted on the training fold only.
 """
 from __future__ import annotations
 
+import os
+
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import (AdaBoostClassifier, HistGradientBoostingClassifier,
                               RandomForestClassifier)
@@ -21,7 +23,7 @@ from xgboost import XGBClassifier
 from pathsnap.config import SEED
 from pathsnap.models.evaluate import ModelSpec
 
-JOBS = 8  # leave cores/RAM for the rest of the laptop
+JOBS = int(os.environ.get("PATHSNAP_JOBS", 8))  # threads; 8 leaves cores/RAM for the laptop
 
 REGISTRY: dict[str, ModelSpec] = {s.name: s for s in [
     # ---------------- recommended five (one per family) ----------------
