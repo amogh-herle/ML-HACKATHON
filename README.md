@@ -77,6 +77,18 @@ python -m pathsnap.data_processing.preprocess
 
 Parameters live in `pathsnap/config.py`.
 
+## Maps
+
+```bash
+python -m pathsnap.viz.maps                                  # default showcase trips
+python -m pathsnap.viz.maps train 00000001 student_test 00000000
+```
+
+Writes `results/maps/<partition>_<trip_id>.html`: GPS observations (with
+tooltips), flagged outliers, nearby road network, reference route, start/end
+markers, legend and layer control. `viz.maps.trip_map(trip, predicted_arcs=...)`
+adds a predicted-route layer.
+
 ## Candidates and features
 
 ```bash
