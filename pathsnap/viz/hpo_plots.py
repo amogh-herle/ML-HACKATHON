@@ -28,16 +28,18 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(9, 4))
     ax.scatter([t.number for t in done], [t.value for t in done], color=GREY, s=20, label="completed trial")
     if pruned:
-        ax.scatter([t.number for t in pruned], [t.intermediate_values[max(t.intermediate_values)]
-                                                for t in pruned],
-                   marker="x", color="#d62728", s=20, label="pruned (running mean when stopped)")
+        # partial (1-2 fold) means are not comparable with 5-fold scores, so pruned trials are
+        # only marked along the bottom of the plot, not placed on the score axis
+        floor = min(t.value for t in done) - 0.001
+        ax.scatter([t.number for t in pruned], [floor] * len(pruned), marker="|", color="#d62728",
+                   s=60, label=f"pruned early ({len(pruned)} trials, no full score)")
     nums = [t.number for t in done]
     best = np.maximum.accumulate([t.value for t in done])
     ax.step(nums, best, where="post", color=ACCENT, lw=2, label="best so far")
     base = study.trials[0].value
     ax.axhline(base, color="#555555", ls="--", lw=1, label=f"untuned baseline ({base:.4f})")
     ax.set_xlabel("trial"); ax.set_ylabel("CV top-1 accuracy (5-fold GroupKFold)")
-    ax.set_title("Optuna TPE search, XGBoost"); ax.legend(fontsize=8, loc="lower right")
+    ax.set_title("Optuna TPE search, XGBoost"); ax.legend(fontsize=8, loc="center right")
     fig.tight_layout(); fig.savefig(OUT / "optimisation_history.png", dpi=150); plt.close(fig)
 
     # 2. hyperparameter importance (fANOVA over completed trials)
