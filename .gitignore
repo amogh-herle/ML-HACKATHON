@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Raw data stays outside the repo (set PATHSNAP_DATA)
+Student folder/
+*.zip
+data/raw/
+
+# Large intermediate tables (regenerate from code)
+*.parquet
+
+# Secrets / local env
+.env
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,26 @@
+# core data
+numpy
+pandas
+pyarrow
+scipy
+pyproj
+shapely
+networkx
+
+# models + HPO
+scikit-learn
+lightgbm
+xgboost
+optuna
+joblib
+
+# visualisation
+matplotlib
+seaborn
+folium
+
+# API + UI
+fastapi
+uvicorn[standard]
+requests
+streamlit
