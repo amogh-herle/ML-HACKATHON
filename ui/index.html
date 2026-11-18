@@ -138,7 +138,16 @@
   const pct = v => (100 * v).toFixed(1) + "%";
   async function call(path, opts = {}) {
     const t0 = performance.now();
-    const res = await fetch(state.api + path, { ...opts, headers: { "Content-Type": "application/json" } });
+    let res;
+    try {
+      res = await fetch(state.api + path, { ...opts, headers: { "Content-Type": "application/json" } });
+    } catch (e) {
+      // network-level failure: the API is not running / not reachable any more
+      log(`${opts.method || "GET"} ${path} -> no response`, true);
+      setStatus($("apiStatus"), `Lost connection to ${state.api}. Is the API still running on Laptop 1? ` +
+        `Start it with "python -m pathsnap.api", then press Connect.`, "bad");
+      throw new Error("API not reachable");
+    }
     const ms = Math.round(performance.now() - t0);
     log(`${opts.method || "GET"} ${path} -> ${res.status} (${ms} ms)`, !res.ok);
     if (!res.ok) {
